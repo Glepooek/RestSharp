@@ -28,13 +28,13 @@ using RestSharp.Extensions;
 namespace RestSharp
 {
     /// <summary>
-    ///     HttpWebRequest wrapper
+    /// HttpWebRequest wrapper
     /// </summary>
     public partial class Http : IHttp
     {
         const string LineBreak = "\r\n";
 
-        const string FormBoundary = "-----------------------------28947758029299";
+        public string FormBoundary { get; } = "---------" + Guid.NewGuid().ToString().ToUpper();
 
         static readonly Regex AddRangeRegex = new Regex("(\\w+)=(\\d+)-(\\d+)$");
 
@@ -104,22 +104,22 @@ namespace RestSharp
         }
 
         /// <summary>
-        ///     True if this HTTP request has any HTTP parameters
+        /// True if this HTTP request has any HTTP parameters
         /// </summary>
         protected bool HasParameters => Parameters.Any();
 
         /// <summary>
-        ///     True if this HTTP request has any HTTP cookies
+        /// True if this HTTP request has any HTTP cookies
         /// </summary>
         protected bool HasCookies => Cookies.Any();
 
         /// <summary>
-        ///     True if a request body has been specified
+        /// True if a request body has been specified
         /// </summary>
         protected bool HasBody => RequestBodyBytes != null || !string.IsNullOrEmpty(RequestBody);
 
         /// <summary>
-        ///     True if files have been set to be uploaded
+        /// True if files have been set to be uploaded
         /// </summary>
         protected bool HasFiles => Files.Any();
 
@@ -129,7 +129,7 @@ namespace RestSharp
         public bool AutomaticDecompression { get; set; }
 
         /// <summary>
-        ///     Always send a multipart/form-data request - even when no Files are present.
+        /// Always send a multipart/form-data request - even when no Files are present.
         /// </summary>
         public bool AlwaysMultipartFormData { get; set; }
 
@@ -219,7 +219,7 @@ namespace RestSharp
 
         /// <inheritdoc />
         /// <summary>
-        ///     Callback function for handling the validation of remote certificates.
+        /// Callback function for handling the validation of remote certificates.
         /// </summary>
         public RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
 
@@ -234,7 +234,7 @@ namespace RestSharp
 
         static HttpWebRequest CreateRequest(Uri uri) => (HttpWebRequest) WebRequest.Create(uri);
 
-        static string GetMultipartFileHeader(HttpFile file)
+        string GetMultipartFileHeader(HttpFile file)
             => $"--{FormBoundary}{LineBreak}Content-Disposition: form-data; name=\"{file.Name}\";" +
                 $" filename=\"{file.FileName}\"{LineBreak}"                                        +
                 $"Content-Type: {file.ContentType ?? "application/octet-stream"}{LineBreak}{LineBreak}";
@@ -248,7 +248,7 @@ namespace RestSharp
             return string.Format(format, FormBoundary, param.Name, param.Value, LineBreak, param.ContentType);
         }
 
-        static string GetMultipartFooter() => $"--{FormBoundary}--{LineBreak}";
+        string GetMultipartFooter() => $"--{FormBoundary}--{LineBreak}";
 
         void PreparePostBody(WebRequest webRequest)
         {
@@ -272,7 +272,7 @@ namespace RestSharp
 
             string EncodeParameters() => string.Join("&", Parameters.Select(p => $"{Encode(p.Name)}={Encode(p.Value)}"));
 
-            static string GetMultipartFormContentType() => $"multipart/form-data; boundary={FormBoundary}";
+            string GetMultipartFormContentType() => $"multipart/form-data; boundary={FormBoundary}";
         }
 
         void WriteMultipartFormData(Stream requestStream)
