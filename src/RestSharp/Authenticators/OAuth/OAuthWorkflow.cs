@@ -1,237 +1,199 @@
-//   Copyright © 2009-2020 John Sheehan, Andrew Young, Alexey Zimarev and RestSharp community
-//
-//   Licensed under the Apache License, Version 2.0 (the "License");
-//   you may not use this file except in compliance with the License.
-//   You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the License is distributed on an "AS IS" BASIS,
-//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//   See the License for the specific language governing permissions and
-//   limitations under the License. 
+//  Copyright © 2009-2021 John Sheehan, Andrew Young, Alexey Zimarev and RestSharp community
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+// http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-using System;
-using System.Collections.Generic;
 using System.Web;
 using RestSharp.Authenticators.OAuth.Extensions;
-using RestSharp.Extensions;
-using RestSharp.Validation;
 
-namespace RestSharp.Authenticators.OAuth
-{
+namespace RestSharp.Authenticators.OAuth;
+
+/// <summary>
+/// A class to encapsulate OAuth authentication flow.
+/// </summary>
+sealed class OAuthWorkflow {
+    public string?                 Version            { get; set; }
+    public string?                 ConsumerKey        { get; set; }
+    public string?                 ConsumerSecret     { get; set; }
+    public string?                 Token              { get; set; }
+    public string?                 TokenSecret        { get; set; }
+    public string?                 CallbackUrl        { get; set; }
+    public string?                 Verifier           { get; set; }
+    public string?                 SessionHandle      { get; set; }
+    public OAuthSignatureMethod    SignatureMethod    { get; set; }
+    public OAuthSignatureTreatment SignatureTreatment { get; set; }
+    public OAuthParameterHandling  ParameterHandling  { get; set; }
+    public string?                 ClientUsername     { get; set; }
+    public string?                 ClientPassword     { get; set; }
+    public string?                 RequestTokenUrl    { get; set; }
+    public string?                 AccessTokenUrl     { get; set; }
+
     /// <summary>
-    /// A class to encapsulate OAuth authentication flow.
+    /// Generates an OAuth signature to pass to an
+    /// <see cref="IAuthenticator" /> for the purpose of requesting an
+    /// unauthorized request token.
     /// </summary>
-    sealed class OAuthWorkflow
-    {
-        public string Version { get; set; }
+    /// <param name="method">The HTTP method for the intended request</param>
+    /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
+    /// <returns></returns>
+    public OAuthParameters BuildRequestTokenInfo(string method, WebPairCollection parameters) {
+        ValidateTokenRequestState();
 
-        public string ConsumerKey { get; set; }
+        var allParameters = new WebPairCollection();
+        allParameters.AddRange(parameters);
 
-        public string ConsumerSecret { get; set; }
+        var timestamp = OAuthTools.GetTimestamp();
+        var nonce     = OAuthTools.GetNonce();
 
-        public string Token { get; set; }
+        var authParameters = GenerateAuthParameters(timestamp, nonce);
+        allParameters.AddRange(authParameters);
 
-        public string TokenSecret { get; set; }
+        var signatureBase = OAuthTools.ConcatenateRequestElements(method, Ensure.NotNull(RequestTokenUrl, nameof(RequestTokenUrl)), allParameters);
 
-        public string CallbackUrl { get; set; }
+        return new OAuthParameters {
+            Signature  = OAuthTools.GetSignature(SignatureMethod, SignatureTreatment, signatureBase, ConsumerSecret),
+            Parameters = authParameters
+        };
+    }
 
-        public string Verifier { get; set; }
+    /// <summary>
+    /// Generates an OAuth signature to pass to the
+    /// <see cref="IAuthenticator" /> for the purpose of exchanging a request token
+    /// for an access token authorized by the user at the Service Provider site.
+    /// </summary>
+    /// <param name="method">The HTTP method for the intended request</param>
+    /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
+    public OAuthParameters BuildAccessTokenSignature(string method, WebPairCollection parameters) {
+        ValidateAccessRequestState();
 
-        public string SessionHandle { get; set; }
+        var allParameters = new WebPairCollection();
+        allParameters.AddRange(parameters);
 
-        public OAuthSignatureMethod SignatureMethod { get; set; }
+        var uri       = new Uri(Ensure.NotEmptyString(AccessTokenUrl, nameof(AccessTokenUrl)));
+        var timestamp = OAuthTools.GetTimestamp();
+        var nonce     = OAuthTools.GetNonce();
 
-        public OAuthSignatureTreatment SignatureTreatment { get; set; }
+        var authParameters = GenerateAuthParameters(timestamp, nonce);
+        allParameters.AddRange(authParameters);
 
-        public OAuthParameterHandling ParameterHandling { get; set; }
+        var signatureBase = OAuthTools.ConcatenateRequestElements(method, uri.ToString(), allParameters);
 
-        public string ClientUsername { get; set; }
+        return new OAuthParameters {
+            Signature  = OAuthTools.GetSignature(SignatureMethod, SignatureTreatment, signatureBase, ConsumerSecret, TokenSecret),
+            Parameters = authParameters
+        };
+    }
 
-        public string ClientPassword { get; set; }
+    /// <summary>
+    /// Generates an OAuth signature to pass to an
+    /// <see cref="IAuthenticator" /> for the purpose of exchanging user credentials
+    /// for an access token authorized by the user at the Service Provider site.
+    /// </summary>
+    /// <param name="method">The HTTP method for the intended request</param>
+    /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
+    public OAuthParameters BuildClientAuthAccessTokenSignature(string method, WebPairCollection parameters) {
+        ValidateClientAuthAccessRequestState();
 
-        public string RequestTokenUrl { get; set; }
+        var allParameters = new WebPairCollection();
+        allParameters.AddRange(parameters);
 
-        public string AccessTokenUrl { get; set; }
+        var uri       = new Uri(Ensure.NotNull(AccessTokenUrl, nameof(AccessTokenUrl)));
+        var timestamp = OAuthTools.GetTimestamp();
+        var nonce     = OAuthTools.GetNonce();
 
-        /// <summary>
-        /// Generates an OAuth signature to pass to an
-        /// <see cref="IAuthenticator" /> for the purpose of requesting an
-        /// unauthorized request token.
-        /// </summary>
-        /// <param name="method">The HTTP method for the intended request</param>
-        /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
-        /// <returns></returns>
-        public string BuildRequestTokenInfo(string method, WebPairCollection parameters)
-        {
-            ValidateTokenRequestState();
+        var authParameters = GenerateXAuthParameters(timestamp, nonce);
+        allParameters.AddRange(authParameters);
 
-            parameters ??= new WebPairCollection();
+        var signatureBase = OAuthTools.ConcatenateRequestElements(method, uri.ToString(), allParameters);
 
-            var timestamp = OAuthTools.GetTimestamp();
-            var nonce     = OAuthTools.GetNonce();
+        return new OAuthParameters {
+            Signature  = OAuthTools.GetSignature(SignatureMethod, SignatureTreatment, signatureBase, ConsumerSecret),
+            Parameters = authParameters
+        };
+    }
 
-            AddAuthParameters(parameters, timestamp, nonce);
+    public OAuthParameters BuildProtectedResourceSignature(string method, WebPairCollection parameters, string url) {
+        ValidateProtectedResourceState();
 
-            var signatureBase = OAuthTools.ConcatenateRequestElements(method, RequestTokenUrl, parameters);
-            return OAuthTools.GetSignature(SignatureMethod, SignatureTreatment, signatureBase, ConsumerSecret);
-        }
+        var allParameters = new WebPairCollection();
+        allParameters.AddRange(parameters);
 
-        /// <summary>
-        /// Generates an OAuth signature to pass to the
-        /// <see cref="IAuthenticator" /> for the purpose of exchanging a request token
-        /// for an access token authorized by the user at the Service Provider site.
-        /// </summary>
-        /// <param name="method">The HTTP method for the intended request</param>
-        /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
-        public string BuildAccessTokenSignature(string method, WebPairCollection parameters)
-        {
-            ValidateAccessRequestState();
+        // Include url parameters in query pool
+        var uri           = new Uri(url);
+        var urlParameters = HttpUtility.ParseQueryString(uri.Query);
 
-            parameters ??= new WebPairCollection();
+        allParameters.AddRange(urlParameters.AllKeys.Select(x => new WebPair(x!, urlParameters[x]!)));
 
-            var uri       = new Uri(AccessTokenUrl);
-            var timestamp = OAuthTools.GetTimestamp();
-            var nonce     = OAuthTools.GetNonce();
+        var timestamp = OAuthTools.GetTimestamp();
+        var nonce     = OAuthTools.GetNonce();
 
-            AddAuthParameters(parameters, timestamp, nonce);
+        var authParameters = GenerateAuthParameters(timestamp, nonce);
+        allParameters.AddRange(authParameters);
 
-            var signatureBase = OAuthTools.ConcatenateRequestElements(method, uri.ToString(), parameters);
+        var signatureBase = OAuthTools.ConcatenateRequestElements(method, url, allParameters);
 
-            return OAuthTools.GetSignature(
-                SignatureMethod, SignatureTreatment, signatureBase,
-                ConsumerSecret, TokenSecret
-            );
-        }
+        return new OAuthParameters {
+            Signature  = OAuthTools.GetSignature(SignatureMethod, SignatureTreatment, signatureBase, ConsumerSecret, TokenSecret),
+            Parameters = authParameters
+        };
+    }
 
-        /// <summary>
-        /// Generates an OAuth signature to pass to an
-        /// <see cref="IAuthenticator" /> for the purpose of exchanging user credentials
-        /// for an access token authorized by the user at the Service Provider site.
-        /// </summary>
-        /// <param name="method">The HTTP method for the intended request</param>
-        /// <param name="parameters">Any existing, non-OAuth query parameters desired in the request</param>
-        public string BuildClientAuthAccessTokenSignature(string method, WebPairCollection parameters)
-        {
-            ValidateClientAuthAccessRequestState();
+    void ValidateTokenRequestState() {
+        Ensure.NotEmpty(RequestTokenUrl, nameof(RequestTokenUrl));
+        Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
+    }
 
-            if (parameters == null)
-                parameters = new WebPairCollection();
+    void ValidateAccessRequestState() {
+        Ensure.NotEmpty(AccessTokenUrl, nameof(AccessTokenUrl));
+        Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
+        Ensure.NotEmpty(Token, nameof(Token));
+    }
 
-            var uri       = new Uri(AccessTokenUrl);
-            var timestamp = OAuthTools.GetTimestamp();
-            var nonce     = OAuthTools.GetNonce();
+    void ValidateClientAuthAccessRequestState() {
+        Ensure.NotEmpty(AccessTokenUrl, nameof(AccessTokenUrl));
+        Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
+        Ensure.NotEmpty(ClientUsername, nameof(ClientUsername));
+    }
 
-            AddXAuthParameters(parameters, timestamp, nonce);
+    void ValidateProtectedResourceState() {
+        Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
+    }
 
-            var signatureBase = OAuthTools.ConcatenateRequestElements(method, uri.ToString(), parameters);
+    WebPairCollection GenerateAuthParameters(string timestamp, string nonce)
+        => new WebPairCollection {
+                new("oauth_consumer_key", Ensure.NotNull(ConsumerKey, nameof(ConsumerKey)), true),
+                new("oauth_nonce", nonce),
+                new("oauth_signature_method", SignatureMethod.ToRequestValue()),
+                new("oauth_timestamp", timestamp),
+                new("oauth_version", Version ?? "1.0")
+            }.AddNotEmpty("oauth_token", Token!, true)
+            .AddNotEmpty("oauth_callback", CallbackUrl!, true)
+            .AddNotEmpty("oauth_verifier", Verifier!)
+            .AddNotEmpty("oauth_session_handle", SessionHandle!);
 
-            return OAuthTools.GetSignature(
-                SignatureMethod, SignatureTreatment, signatureBase,
-                ConsumerSecret
-            );
-        }
+    WebPairCollection GenerateXAuthParameters(string timestamp, string nonce)
+        => new WebPairCollection {
+            new("x_auth_username", Ensure.NotNull(ClientUsername, nameof(ClientUsername))),
+            new("x_auth_password", Ensure.NotNull(ClientPassword, nameof(ClientPassword))),
+            new("x_auth_mode", "client_auth"),
+            new("oauth_consumer_key", Ensure.NotNull(ConsumerKey, nameof(ConsumerKey)), true),
+            new("oauth_signature_method", SignatureMethod.ToRequestValue()),
+            new("oauth_timestamp", timestamp),
+            new("oauth_nonce", nonce),
+            new("oauth_version", Version ?? "1.0")
+        };
 
-        public string BuildProtectedResourceSignature(string method, WebPairCollection parameters, string url)
-        {
-            ValidateProtectedResourceState();
-
-            parameters ??= new WebPairCollection();
-
-            // Include url parameters in query pool
-            var uri           = new Uri(url);
-            var urlParameters = HttpUtility.ParseQueryString(uri.Query);
-
-            foreach (var parameter in urlParameters.AllKeys)
-                parameters.Add(parameter, urlParameters[parameter]);
-
-            var timestamp = OAuthTools.GetTimestamp();
-            var nonce     = OAuthTools.GetNonce();
-
-            AddAuthParameters(parameters, timestamp, nonce);
-
-            var signatureBase = OAuthTools.ConcatenateRequestElements(method, url, parameters);
-
-            return OAuthTools.GetSignature(
-                SignatureMethod, SignatureTreatment, signatureBase,
-                ConsumerSecret, TokenSecret
-            );
-        }
-
-        void ValidateTokenRequestState()
-        {
-            Ensure.NotEmpty(RequestTokenUrl, nameof(RequestTokenUrl));
-            Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
-            Ensure.NotEmpty(ConsumerSecret, nameof(ConsumerSecret));
-        }
-
-        void ValidateAccessRequestState()
-        {
-            Ensure.NotEmpty(AccessTokenUrl, nameof(AccessTokenUrl));
-            Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
-            Ensure.NotEmpty(ConsumerSecret, nameof(ConsumerSecret));
-            Ensure.NotEmpty(Token, nameof(Token));
-        }
-
-        void ValidateClientAuthAccessRequestState()
-        {
-            Ensure.NotEmpty(AccessTokenUrl, nameof(AccessTokenUrl));
-            Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
-            Ensure.NotEmpty(ConsumerSecret, nameof(ConsumerSecret));
-            Ensure.NotEmpty(ClientUsername, nameof(ClientUsername));
-        }
-
-        void ValidateProtectedResourceState()
-        {
-            Ensure.NotEmpty(ConsumerKey, nameof(ConsumerKey));
-            Ensure.NotEmpty(ConsumerSecret, nameof(ConsumerSecret));
-        }
-
-        void AddAuthParameters(ICollection<WebPair> parameters, string timestamp, string nonce)
-        {
-            var authParameters = new WebPairCollection
-            {
-                new WebPair("oauth_consumer_key", ConsumerKey),
-                new WebPair("oauth_nonce", nonce),
-                new WebPair("oauth_signature_method", SignatureMethod.ToRequestValue()),
-                new WebPair("oauth_timestamp", timestamp),
-                new WebPair("oauth_version", Version ?? "1.0")
-            };
-
-            if (!Token.IsEmpty())
-                authParameters.Add(new WebPair("oauth_token", Token));
-
-            if (!CallbackUrl.IsEmpty())
-                authParameters.Add(new WebPair("oauth_callback", CallbackUrl));
-
-            if (!Verifier.IsEmpty())
-                authParameters.Add(new WebPair("oauth_verifier", Verifier));
-
-            if (!SessionHandle.IsEmpty())
-                authParameters.Add(new WebPair("oauth_session_handle", SessionHandle));
-
-            foreach (var authParameter in authParameters)
-                parameters.Add(authParameter);
-        }
-
-        void AddXAuthParameters(ICollection<WebPair> parameters, string timestamp, string nonce)
-        {
-            var authParameters = new WebPairCollection
-            {
-                new WebPair("x_auth_username", ClientUsername),
-                new WebPair("x_auth_password", ClientPassword),
-                new WebPair("x_auth_mode", "client_auth"),
-                new WebPair("oauth_consumer_key", ConsumerKey),
-                new WebPair("oauth_signature_method", SignatureMethod.ToRequestValue()),
-                new WebPair("oauth_timestamp", timestamp),
-                new WebPair("oauth_nonce", nonce),
-                new WebPair("oauth_version", Version ?? "1.0")
-            };
-
-            foreach (var authParameter in authParameters)
-                parameters.Add(authParameter);
-        }
+    internal class OAuthParameters {
+        public WebPairCollection Parameters { get; init; } = null!;
+        public string            Signature  { get; init; } = null!;
     }
 }
