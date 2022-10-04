@@ -8,7 +8,7 @@
         <RepositoryUrl>https://github.com/restsharp/RestSharp.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <Description>Simple REST and HTTP API Client</Description>
-        <Authors>John Sheehan, Andrew Young, Alexey Zimarev and RestSharp community</Authors>
+        <Authors>.NET Foundation and Contributors</Authors>
         <UpdateVersionProperties>true</UpdateVersionProperties>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IncludeSymbols>true</IncludeSymbols>
@@ -19,7 +19,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
-        <PackageReference Include="MinVer" Version="4.1.0" PrivateAssets="All"/>
+        <PackageReference Include="MinVer" Version="4.2.0" PrivateAssets="All"/>
         <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" PrivateAssets="All"/>
     </ItemGroup>
     <ItemGroup>
