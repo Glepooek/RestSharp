@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Net;
 using System.Text.RegularExpressions;
 using RestSharp.Extensions;
 using RestSharp.Serializers;
@@ -261,6 +262,35 @@ public static class RestRequestExtensions {
         return request;
     }
 
+    // TODO: Three methods below added for binary compatibility with v108. Remove for the next major release.
+    // In addition, both contentType and options parameters should get default values.
+
+    public static RestRequest AddFile(
+        this RestRequest request,
+        string           name,
+        string           path,
+        string?          contentType = null
+    )
+        => request.AddFile(FileParameter.FromFile(path, name, contentType));
+
+    public static RestRequest AddFile(
+        this RestRequest request,
+        string           name,
+        byte[]           bytes,
+        string           filename,
+        string?          contentType = null
+    )
+        => request.AddFile(FileParameter.Create(name, bytes, filename, contentType));
+
+    public static RestRequest AddFile(
+        this RestRequest      request,
+        string                name,
+        Func<Stream>          getFile,
+        string                fileName,
+        string?               contentType = null
+    )
+        => request.AddFile(FileParameter.Create(name, getFile, fileName, contentType));
+
     /// <summary>
     /// Adds a file parameter to the request body. The file will be read from disk as a stream.
     /// </summary>
@@ -274,8 +304,8 @@ public static class RestRequestExtensions {
         this RestRequest      request,
         string                name,
         string                path,
-        string?               contentType = null,
-        FileParameterOptions? options     = null
+        string?               contentType,
+        FileParameterOptions? options
     )
         => request.AddFile(FileParameter.FromFile(path, name, contentType, options));
 
@@ -294,8 +324,8 @@ public static class RestRequestExtensions {
         string                name,
         byte[]                bytes,
         string                filename,
-        string?               contentType = null,
-        FileParameterOptions? options     = null
+        string?               contentType,
+        FileParameterOptions? options
     )
         => request.AddFile(FileParameter.Create(name, bytes, filename, contentType, options));
 
@@ -314,8 +344,8 @@ public static class RestRequestExtensions {
         string                name,
         Func<Stream>          getFile,
         string                fileName,
-        string?               contentType = null,
-        FileParameterOptions? options     = null
+        string?               contentType,
+        FileParameterOptions? options
     )
         => request.AddFile(FileParameter.Create(name, getFile, fileName, contentType, options));
 
@@ -368,7 +398,7 @@ public static class RestRequestExtensions {
     /// <param name="contentType">Content type of the body</param>
     /// <returns></returns>
     public static RestRequest AddStringBody(this RestRequest request, string body, string contentType)
-        => request.AddParameter(new BodyParameter("", body, Ensure.NotEmpty(contentType, nameof(contentType))));
+        => request.AddParameter(new BodyParameter(body, Ensure.NotEmpty(contentType, nameof(contentType))));
 
     /// <summary>
     /// Adds a JSON body parameter to the request
@@ -379,7 +409,7 @@ public static class RestRequestExtensions {
     /// <returns></returns>
     public static RestRequest AddJsonBody<T>(this RestRequest request, T obj, string contentType = ContentType.Json) where T : class {
         request.RequestFormat = DataFormat.Json;
-        return obj is string str ? request.AddStringBody(str, DataFormat.Json) : request.AddParameter(new JsonParameter("", obj, contentType));
+        return obj is string str ? request.AddStringBody(str, DataFormat.Json) : request.AddParameter(new JsonParameter(obj, contentType));
     }
 
     /// <summary>
@@ -396,7 +426,7 @@ public static class RestRequestExtensions {
 
         return obj is string str
             ? request.AddStringBody(str, DataFormat.Xml)
-            : request.AddParameter(new XmlParameter("", obj, xmlNamespace, contentType));
+            : request.AddParameter(new XmlParameter(obj, xmlNamespace, contentType));
     }
 
     /// <summary>
@@ -413,6 +443,21 @@ public static class RestRequestExtensions {
             request.AddParameter(name, value);
         }
 
+        return request;
+    }
+
+    /// <summary>
+    /// Adds cookie to the <seealso cref="HttpClient"/> cookie container.
+    /// </summary>
+    /// <param name="request">RestRequest to add the cookies to</param>
+    /// <param name="name">Cookie name</param>
+    /// <param name="value">Cookie value</param>
+    /// <param name="path">Cookie path</param>
+    /// <param name="domain">Cookie domain, must not be an empty string</param>
+    /// <returns></returns>
+    public static RestRequest AddCookie(this RestRequest request, string name, string value, string path, string domain) {
+        request.CookieContainer ??= new CookieContainer();
+        request.CookieContainer.Add(new Cookie(name, value, path, domain));
         return request;
     }
 

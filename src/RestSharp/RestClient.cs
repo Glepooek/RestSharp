@@ -27,8 +27,6 @@ namespace RestSharp;
 /// Client to translate RestRequests into Http requests and process response result
 /// </summary>
 public partial class RestClient : IDisposable {
-    public CookieContainer CookieContainer { get; }
-
     /// <summary>
     /// Content types that will be sent in the Accept header. The list is populated from the known serializers.
     /// If you need to send something else by default, set this property to a different value.
@@ -51,7 +49,6 @@ public partial class RestClient : IDisposable {
         UseDefaultSerializers();
 
         Options            = options;
-        CookieContainer    = Options.CookieContainer ?? new CookieContainer();
         _disposeHttpClient = true;
 
         var handler = new HttpClientHandler();
@@ -71,23 +68,27 @@ public partial class RestClient : IDisposable {
 
     /// <inheritdoc />
     /// <summary>
-    /// Sets the BaseUrl property for requests made by this client instance
+    /// Creates an instance of RestClient using a specific BaseUrl for requests made by this client instance
     /// </summary>
-    /// <param name="baseUrl"></param>
+    /// <param name="baseUrl">Base URI for the new client</param>
     public RestClient(Uri baseUrl) : this(new RestClientOptions { BaseUrl = baseUrl }) { }
 
     /// <inheritdoc />
     /// <summary>
-    /// Sets the BaseUrl property for requests made by this client instance
+    /// Creates an instance of RestClient using a specific BaseUrl for requests made by this client instance
     /// </summary>
-    /// <param name="baseUrl"></param>
+    /// <param name="baseUrl">Base URI for this new client as a string</param>
     public RestClient(string baseUrl) : this(new Uri(Ensure.NotEmptyString(baseUrl, nameof(baseUrl)))) { }
 
+    /// <summary>
+    /// Creates an instance of RestClient using a shared HttpClient and does not allocate one internally.
+    /// </summary>
+    /// <param name="httpClient">HttpClient to use</param>
+    /// <param name="disposeHttpClient">True to dispose of the client, false to assume the caller does (defaults to false)</param>
     public RestClient(HttpClient httpClient, bool disposeHttpClient = false) {
         UseDefaultSerializers();
 
         HttpClient         = httpClient;
-        CookieContainer    = new CookieContainer();
         Options            = new RestClientOptions();
         _disposeHttpClient = disposeHttpClient;
 
@@ -96,15 +97,16 @@ public partial class RestClient : IDisposable {
         }
     }
 
+    /// <summary>
+    /// Creates an instance of RestClient using a shared HttpClient and specific RestClientOptions and does not allocate one internally.
+    /// </summary>
+    /// <param name="httpClient">HttpClient to use</param>
+    /// <param name="options">RestClient options to use</param>
+    /// <param name="disposeHttpClient">True to dispose of the client, false to assume the caller does (defaults to false)</param>
     public RestClient(HttpClient httpClient, RestClientOptions options, bool disposeHttpClient = false) {
-        if (options.CookieContainer != null) {
-            throw new ArgumentException("Custom cookie container cannot be added to the HttpClient instance", nameof(options.CookieContainer));
-        }
-
         UseDefaultSerializers();
 
         HttpClient         = httpClient;
-        CookieContainer    = new CookieContainer();
         Options            = options;
         _disposeHttpClient = disposeHttpClient;
 
@@ -125,23 +127,23 @@ public partial class RestClient : IDisposable {
 
     void ConfigureHttpClient(HttpClient httpClient) {
         if (Options.MaxTimeout > 0) httpClient.Timeout = TimeSpan.FromMilliseconds(Options.MaxTimeout);
-        if (httpClient.DefaultRequestHeaders.UserAgent.All(x => x.Product.Name != "RestSharp")) {
-            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(Options.UserAgent);
+
+        if (Options.UserAgent != null && httpClient.DefaultRequestHeaders.UserAgent.All(x => x.Product?.Name != Options.UserAgent)) {
+            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", Options.UserAgent);
         }
-        if (Options.Expect100Continue != null)
-            httpClient.DefaultRequestHeaders.ExpectContinue = Options.Expect100Continue;
+
+        if (Options.Expect100Continue != null) httpClient.DefaultRequestHeaders.ExpectContinue = Options.Expect100Continue;
     }
 
     void ConfigureHttpMessageHandler(HttpClientHandler handler) {
+        handler.UseCookies             = false;
         handler.Credentials            = Options.Credentials;
         handler.UseDefaultCredentials  = Options.UseDefaultCredentials;
-        handler.CookieContainer        = CookieContainer;
         handler.AutomaticDecompression = Options.AutomaticDecompression;
         handler.PreAuthenticate        = Options.PreAuthenticate;
         handler.AllowAutoRedirect      = Options.FollowRedirects;
-        
-        if (handler.SupportsProxy)
-            handler.Proxy = Options.Proxy;
+
+        if (handler.SupportsProxy) handler.Proxy = Options.Proxy;
 
         if (Options.RemoteCertificateValidationCallback != null)
             handler.ServerCertificateCustomValidationCallback =
@@ -178,7 +180,7 @@ public partial class RestClient : IDisposable {
             );
 
         if (!Options.AllowMultipleDefaultParametersWithSameName &&
-            !MultiParameterTypes.Contains(parameter.Type) &&
+            !MultiParameterTypes.Contains(parameter.Type)       &&
             DefaultParameters.Any(x => x.Name == parameter.Name)) {
             throw new ArgumentException("A default parameters with the same name has already been added", nameof(parameter));
         }
