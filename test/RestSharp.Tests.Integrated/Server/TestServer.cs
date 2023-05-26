@@ -20,7 +20,7 @@ public sealed class HttpServer {
     public HttpServer(ITestOutputHelper? output = null) {
         var builder = WebApplication.CreateBuilder();
 
-        if (output != null) builder.WebHost.ConfigureLogging(x => x.SetMinimumLevel(LogLevel.Information).AddXunit(output, LogLevel.Debug));
+        if (output != null) builder.Logging.AddXunit(output, LogLevel.Debug);
 
         builder.Services.AddControllers().AddApplicationPart(typeof(UploadController).Assembly);
         builder.WebHost.UseUrls(Address);
@@ -40,6 +40,7 @@ public sealed class HttpServer {
         // Cookies
         _app.MapGet("get-cookies", CookieHandlers.HandleCookies);
         _app.MapGet("set-cookies", CookieHandlers.HandleSetCookies);
+        _app.MapGet("redirect", () => Results.Redirect("/success", false, true));
 
         // PUT
         _app.MapPut(

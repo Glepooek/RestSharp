@@ -15,7 +15,7 @@ public class PostTests {
         var request  = new RestRequest("post/json").AddJsonBody(body);
         var response = await _client.ExecutePostAsync<TestResponse>(request);
 
-        response!.Data!.Message.Should().Be(body.Data);
+        response.Data!.Message.Should().Be(body.Data);
     }
 
     [Fact]
@@ -66,12 +66,12 @@ public class PostTests {
         void CheckResponse(PostParameter parameter) {
             var p = response.Data!.FirstOrDefault(x => x.Name == parameter.Name);
             p.Should().NotBeNull();
-            p.Value.Should().Be(parameter.Value);
+            p!.Value.Should().Be(parameter.Value);
         }
     }
 
     class Response {
-        public string Message { get; set; }
+        public string Message { get; set; } = null!;
     }
 
     record PostParameter(string Name, string Value);

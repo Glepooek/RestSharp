@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System.Net;
+using System.Net.Http.Headers;
 using RestSharp.Authenticators;
 using RestSharp.Extensions;
 
@@ -25,8 +26,8 @@ namespace RestSharp;
 /// Container for data used to make requests
 /// </summary>
 public class RestRequest {
-    readonly Func<HttpResponseMessage, RestRequest, RestResponse>? _advancedResponseHandler;
-    readonly Func<Stream, Stream?>?                                _responseWriter;
+    Func<HttpResponseMessage, RestRequest, RestResponse>? _advancedResponseHandler;
+    Func<Stream, Stream?>?                                _responseWriter;
 
     /// <summary>
     /// Default constructor
@@ -80,21 +81,36 @@ public class RestRequest {
     /// Always send a multipart/form-data request - even when no Files are present.
     /// </summary>
     public bool AlwaysMultipartFormData { get; set; }
-
+    
     /// <summary>
-    /// When set to true, parameters in a multipart form data requests will be enclosed in
+    /// Always send a file as request content without multipart/form-data request - even when the request contains only one file parameter
+    /// </summary>
+    public bool AlwaysSingleFileAsContent { get; set; }
+    
+    /// <summary>
+    /// When set to true, parameter values in a multipart form data requests will be enclosed in
     /// quotation marks. Default is false. Enable it if the remote endpoint requires parameters
     /// to be in quotes (for example, FreshDesk API). 
     /// </summary>
     public bool MultipartFormQuoteParameters { get; set; }
 
+    /// <summary>
+    /// When set to true, the form boundary part of the content type will be enclosed in
+    /// quotation marks. Default is true.
+    /// </summary>
+    [PublicAPI]
+    public bool MultipartFormQuoteBoundary { get; set; } = true;
+
+    /// <summary>
+    /// Overrides the default (random) form boundary
+    /// </summary>
     public string? FormBoundary { get; set; }
 
     /// <summary>
     /// Container of all HTTP parameters to be passed with the request.
     /// See AddParameter() for explanation of the types of parameters that can be passed
     /// </summary>
-    public ParametersCollection Parameters { get; } = new();
+    public RequestParameters Parameters { get; } = new();
 
     /// <summary>
     /// Optional cookie container to use for the request. If not set, cookies are not passed.
@@ -134,6 +150,7 @@ public class RestRequest {
     /// request.Resource = "Products/{ProductId}";
     /// request.AddParameter("ProductId", 123, ParameterType.UrlSegment);
     /// </example>
+    [PublicAPI]
     public string Resource { get; set; } = "";
 
     /// <summary>
@@ -170,6 +187,7 @@ public class RestRequest {
     /// <remarks>
     /// This number is incremented each time the RestClient sends the request.
     /// </remarks>
+    [PublicAPI]
     public int Attempts { get; private set; }
 
     /// <summary>
@@ -178,11 +196,16 @@ public class RestRequest {
     public HttpCompletionOption CompletionOption { get; set; } = HttpCompletionOption.ResponseContentRead;
 
     /// <summary>
+    /// Cache policy to be used for requests using <seealso cref="CacheControlHeaderValue"/>
+    /// </summary>
+    public CacheControlHeaderValue? CachePolicy { get; set; }
+
+    /// <summary>
     /// Set this to write response to Stream rather than reading into memory.
     /// </summary>
     public Func<Stream, Stream?>? ResponseWriter {
         get => _responseWriter;
-        init {
+        set {
             if (AdvancedResponseWriter != null)
                 throw new ArgumentException(
                     "AdvancedResponseWriter is not null. Only one response writer can be used."
@@ -197,7 +220,7 @@ public class RestRequest {
     /// </summary>
     public Func<HttpResponseMessage, RestRequest, RestResponse>? AdvancedResponseWriter {
         get => _advancedResponseHandler;
-        init {
+        set {
             if (ResponseWriter != null) throw new ArgumentException("ResponseWriter is not null. Only one response writer can be used.");
 
             _advancedResponseHandler = value;

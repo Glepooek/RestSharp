@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using RestSharp.Authenticators.OAuth.Extensions;
@@ -88,7 +89,10 @@ static class OAuthTools {
     /// actually worked (which in my experiments it <i>doesn't</i>), we can't rely on every
     /// host actually having this configuration element present.
     /// </remarks>
-    public static string UrlEncodeRelaxed(string value) {
+    [return: NotNullIfNotNull(nameof(value))]
+    public static string? UrlEncodeRelaxed(string? value) {
+        if (value == null) return null;
+
         // Escape RFC 3986 chars first.
         var escapedRfc3986 = new StringBuilder(value);
 
@@ -117,8 +121,9 @@ static class OAuthTools {
     // Generic Syntax," .) section 2.3) MUST be encoded.
     // ...
     // unreserved = ALPHA, DIGIT, '-', '.', '_', '~'
-    public static string UrlEncodeStrict(string value)
-        => string.Join("", value.Select(x => Unreserved.Contains(x) ? x.ToString() : $"%{(byte)x:X2}"));
+    [return: NotNullIfNotNull(nameof(value))]
+    public static string? UrlEncodeStrict(string? value)
+        => value == null ? null : string.Join("", value.Select(x => Unreserved.Contains(x) ? x.ToString() : $"%{(byte)x:X2}"));
 
     /// <summary>
     /// Sorts a collection of key-value pairs by name, and then value if equal,
@@ -134,12 +139,12 @@ static class OAuthTools {
     /// </summary>
     /// <param name="parameters">A collection of parameters to sort</param>
     /// <returns>A sorted parameter collection</returns>
-    public static IEnumerable<string> SortParametersExcludingSignature(WebPairCollection parameters)
+    internal static IEnumerable<string> SortParametersExcludingSignature(WebPairCollection parameters)
         => parameters
             .Where(x => !x.Name.EqualsIgnoreCase("oauth_signature"))
-            .Select(x => new WebPair(UrlEncodeStrict(x.Name), UrlEncodeStrict(x.Value), x.Encode))
+            .Select(x => new WebPair(UrlEncodeStrict(x.Name), UrlEncodeStrict(x.Value)))
             .OrderBy(x => x, WebPair.Comparer)
-            .Select(x => $"{x.Name}={x.Value}");
+            .Select(x => x.GetQueryParameter(false));
 
     /// <summary>
     /// Creates a request URL suitable for making OAuth requests.
@@ -151,8 +156,8 @@ static class OAuthTools {
     static string ConstructRequestUrl(Uri url) {
         Ensure.NotNull(url, nameof(url));
 
-        var basic  = url.Scheme == "http" && url.Port == 80;
-        var secure = url.Scheme == "https" && url.Port == 443;
+        var basic  = url is { Scheme: "http", Port : 80 };
+        var secure = url is { Scheme: "https", Port: 443 };
         var port   = basic || secure ? "" : $":{url.Port}";
 
         return $"{url.Scheme}://{url.Host}{port}{url.AbsolutePath}";
@@ -226,9 +231,9 @@ static class OAuthTools {
         if (tokenSecret.IsEmpty()) tokenSecret       = string.Empty;
         if (consumerSecret.IsEmpty()) consumerSecret = string.Empty;
 
-        var unencodedConsumerSecret = consumerSecret!;
-        consumerSecret = Uri.EscapeDataString(consumerSecret!);
-        tokenSecret    = Uri.EscapeDataString(tokenSecret!);
+        var unencodedConsumerSecret = consumerSecret;
+        consumerSecret = Uri.EscapeDataString(consumerSecret);
+        tokenSecret    = Uri.EscapeDataString(tokenSecret);
 
         var signature = signatureMethod switch {
             HmacSha1   => GetHmacSignature(new HMACSHA1(), consumerSecret, tokenSecret, signatureBase),
@@ -249,9 +254,12 @@ static class OAuthTools {
 
             provider.FromXmlString(unencodedConsumerSecret);
 
+#if NET
+            var hash = SHA1.HashData(Encoding.GetBytes(signatureBase));
+#else
             var hasher = SHA1.Create();
-            var hash   = hasher.ComputeHash(Encoding.GetBytes(signatureBase));
-
+            var hash = hasher.ComputeHash(Encoding.GetBytes(signatureBase));
+#endif
             return Convert.ToBase64String(provider.SignHash(hash, CryptoConfig.MapNameToOID("SHA1")));
         }
     }

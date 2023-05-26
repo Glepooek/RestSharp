@@ -17,10 +17,15 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Reflection;
+using System.Runtime.Versioning;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using RestSharp.Authenticators;
 using RestSharp.Extensions;
+
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
+// ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 
 namespace RestSharp;
 
@@ -62,6 +67,9 @@ public class RestClientOptions {
     /// <summary>
     /// Passed to <see cref="HttpMessageHandler"/> <code>Credentials</code> property
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public ICredentials? Credentials { get; set; }
 
     /// <summary>
@@ -69,6 +77,9 @@ public class RestClientOptions {
     /// running) will be sent along to the server. The default is false.
     /// Passed to <see cref="HttpMessageHandler"/> <code>UseDefaultCredentials</code> property
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public bool UseDefaultCredentials { get; set; }
 
     /// <summary>
@@ -80,6 +91,7 @@ public class RestClientOptions {
     /// Set the decompression method to use when making requests
     /// </summary>
 #if NET
+    [UnsupportedOSPlatform("browser")]
     public DecompressionMethods AutomaticDecompression { get; set; } = DecompressionMethods.All;
 #else
     public DecompressionMethods AutomaticDecompression { get; set; } = DecompressionMethods.GZip;
@@ -88,16 +100,27 @@ public class RestClientOptions {
     /// <summary>
     /// Set the maximum number of redirects to follow
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public int? MaxRedirects { get; set; }
 
     /// <summary>
     /// X509CertificateCollection to be sent with request
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public X509CertificateCollection? ClientCertificates { get; set; }
 
     /// <summary>
     /// Set the proxy to use when making requests. Default is null, which will use the default system proxy if one is set.
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+    [UnsupportedOSPlatform("ios")]
+    [UnsupportedOSPlatform("tvos")]
+#endif
     public IWebProxy? Proxy { get; set; }
 
     /// <summary>
@@ -123,18 +146,30 @@ public class RestClientOptions {
     /// <summary>
     /// Passed to <see cref="HttpMessageHandler"/> <see langword="PreAuthenticate"/> property
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public bool PreAuthenticate { get; set; }
 
     /// <summary>
     /// Callback function for handling the validation of remote certificates. Useful for certificate pinning and
     /// overriding certificate errors in the scope of a request.
     /// </summary>
+#if NET
+    [UnsupportedOSPlatform("browser")]
+#endif
     public RemoteCertificateValidationCallback? RemoteCertificateValidationCallback { get; set; }
 
     /// <summary>
     /// Sets the value of the Host header to be sent with requests.
     /// </summary>
     public string? BaseHost { get; set; }
+
+    /// <summary>
+    /// Custom cookie container to be used for requests. RestSharp will not assign the container to the message handler,
+    /// but will fetch cookies from it and set them on the request.
+    /// </summary>
+    public CookieContainer? CookieContainer { get; set; }
 
     /// <summary>
     /// Maximum request duration in milliseconds. When the request timeout is specified using <seealso cref="RestRequest.Timeout"/>,

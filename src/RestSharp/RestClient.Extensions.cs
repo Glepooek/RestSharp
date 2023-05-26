@@ -14,7 +14,6 @@
 
 using System.Runtime.CompilerServices;
 using RestSharp.Extensions;
-using RestSharp.Serializers;
 
 namespace RestSharp;
 
@@ -103,9 +102,6 @@ public static partial class RestClientExtensions {
         RestRequest       request,
         CancellationToken cancellationToken = default
     ) {
-        if (request == null)
-            throw new ArgumentNullException(nameof(request));
-
         var response = await client.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
         return client.Serializers.Deserialize<T>(request, response, client.Options);
     }
@@ -294,10 +290,10 @@ public static partial class RestClientExtensions {
     /// <returns>The downloaded file.</returns>
     [PublicAPI]
     public static async Task<byte[]?> DownloadDataAsync(this IRestClient client, RestRequest request, CancellationToken cancellationToken = default) {
-#if NETSTANDARD || NETFRAMEWORK
-        using var stream = await client.DownloadStreamAsync(request, cancellationToken).ConfigureAwait(false);
-#else
+#if NET
         await using var stream = await client.DownloadStreamAsync(request, cancellationToken).ConfigureAwait(false);
+#else
+        using var stream = await client.DownloadStreamAsync(request, cancellationToken).ConfigureAwait(false);
 #endif
         return stream == null ? null : await stream.ReadAsBytes(cancellationToken).ConfigureAwait(false);
     }

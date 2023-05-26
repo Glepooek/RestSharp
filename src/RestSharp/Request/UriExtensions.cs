@@ -13,7 +13,6 @@
 // limitations under the License.
 // 
 
-using System.Text;
 using RestSharp.Extensions;
 
 namespace RestSharp;
@@ -22,11 +21,11 @@ static class UriExtensions {
     public static Uri MergeBaseUrlAndResource(this Uri? baseUrl, string? resource) {
         var assembled = resource;
 
-        if (assembled.IsNotEmpty() && assembled!.StartsWith("/")) assembled = assembled.Substring(1);
+        if (assembled.IsNotEmpty() && assembled.StartsWith("/")) assembled = assembled.Substring(1);
 
         if (baseUrl == null || baseUrl.AbsoluteUri.IsEmpty()) {
             return assembled.IsNotEmpty()
-                ? new Uri(assembled!)
+                ? new Uri(assembled)
                 : throw new ArgumentException("Both BaseUrl and Resource are empty", nameof(resource));
         }
 
@@ -35,33 +34,13 @@ static class UriExtensions {
         return assembled != null ? new Uri(usingBaseUri, assembled) : baseUrl;
     }
 
-    public static Uri ApplyQueryStringParamsValuesToUri(
-        this Uri                       mergedUri,
-        Method                         method,
-        Encoding                       encoding,
-        Func<string, Encoding, string> encodeQuery,
-        params ParametersCollection[]  parametersCollections
-    ) {
-        var parameters = parametersCollections.SelectMany(x => x.GetQueryParameters(method)).ToList();
+    public static Uri AddQueryString(this Uri uri, string? query) {
+        if (query == null) return uri;
 
-        if (parameters.Count == 0) return mergedUri;
+        var absoluteUri       = uri.AbsoluteUri;
+        var separator = absoluteUri.Contains('?') ? "&" : "?";
 
-        var uri       = mergedUri.AbsoluteUri;
-        var separator = uri.Contains('?') ? "&" : "?";
-
-        return new Uri(string.Concat(uri, separator, EncodeParameters()));
-
-        string EncodeParameters() => string.Join("&", parameters.Select(EncodeParameter).ToArray());
-
-        string GetString(string name, string? value, Func<string, string>? encode) {
-            var val = encode != null && value != null ? encode(value) : value;
-            return val == null ? name : $"{name}={val}";
-        }
-
-        string EncodeParameter(Parameter parameter)
-            => !parameter.Encode
-                ? GetString(parameter.Name!, parameter.Value?.ToString(), null)
-                : GetString(encodeQuery(parameter.Name!, encoding), parameter.Value?.ToString(), x => encodeQuery(x, encoding));
+        return new Uri($"{absoluteUri}{separator}{query}");
     }
 
     public static UrlSegmentParamsValues GetUrlSegmentParamsValues(
@@ -75,13 +54,14 @@ static class UriExtensions {
 
         var hasResource = !assembled.IsEmpty();
 
-        var parameters = parametersCollections.SelectMany(x => x.GetParameters(ParameterType.UrlSegment));
+        var parameters = parametersCollections.SelectMany(x => x.GetParameters<UrlSegmentParameter>());
 
         var builder = new UriBuilder(baseUrl);
 
         foreach (var parameter in parameters) {
             var paramPlaceHolder = $"{{{parameter.Name}}}";
-            var paramValue       = parameter.Encode ? encode(parameter.Value!.ToString()!) : parameter.Value!.ToString();
+            var value            = Ensure.NotNull(parameter.Value!.ToString(), $"URL segment parameter {parameter.Name} value");
+            var paramValue       = parameter.Encode ? encode(value) : value;
 
             if (hasResource) assembled = assembled.Replace(paramPlaceHolder, paramValue);
 

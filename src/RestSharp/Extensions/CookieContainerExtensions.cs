@@ -13,18 +13,19 @@
 // limitations under the License.
 //
 
-using System.Net.Http.Headers;
-using RestSharp.Authenticators;
+using System.Net;
 
-namespace RestSharp;
+namespace RestSharp.Extensions;
 
-public class RestRequestOptions {
-    /// <summary>
-    /// Authenticator that will be used to populate request with necessary authentication data
-    /// </summary>
-    public IAuthenticator? Authenticator { get; set; }
-
-    public CacheControlHeaderValue? CachePolicy { get; set; }
-
-    public string? BaseHost { get; set; }
+static class CookieContainerExtensions {
+    public static void AddCookies(this CookieContainer cookieContainer, Uri uri, IEnumerable<string> cookiesHeader) {
+        foreach (var header in cookiesHeader) {
+            try {
+                cookieContainer.SetCookies(uri, header);
+            }
+            catch (CookieException) {
+                // Do not fail request if we cannot parse a cookie
+            }
+        }
+    }
 }
