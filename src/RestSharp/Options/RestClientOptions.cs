@@ -65,6 +65,10 @@ public class RestClientOptions {
     /// </summary>
     public IAuthenticator? Authenticator { get; set; }
 
+    /// <summary>
+    /// List of interceptors that will be executed before the request is sent
+    /// </summary>
+    [Exclude]
     public List<Interceptor> Interceptors { get; set; } = new();
 
     /// <summary>
@@ -114,6 +118,7 @@ public class RestClientOptions {
 #if NET
     [UnsupportedOSPlatform("browser")]
 #endif
+    [Exclude]
     public X509CertificateCollection? ClientCertificates { get; set; }
 
     /// <summary>
@@ -175,10 +180,9 @@ public class RestClientOptions {
     public CookieContainer? CookieContainer { get; set; }
 
     /// <summary>
-    /// Maximum request duration in milliseconds. When the request timeout is specified using <seealso cref="RestRequest.Timeout"/>,
-    /// the lowest value between the client timeout and request timeout will be used.
+    /// Request duration. Used when the request timeout is not specified using <seealso cref="RestRequest.Timeout"/>,
     /// </summary>
-    public int MaxTimeout { get; set; }
+    public TimeSpan? Timeout { get; set; }
 
     /// <summary>
     /// Default encoding to use when no encoding is specified in the content type header.

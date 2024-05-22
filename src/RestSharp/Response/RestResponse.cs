@@ -26,7 +26,7 @@ namespace RestSharp;
 /// </summary>
 /// <typeparam name="T">Type of data to deserialize to</typeparam>
 [DebuggerDisplay("{" + nameof(DebuggerDisplay) + "()}")]
-public class RestResponse<T> : RestResponse {
+public class RestResponse<T>(RestRequest request) : RestResponse(request) {
     /// <summary>
     /// Deserialized entity data
     /// </summary>
@@ -35,32 +35,31 @@ public class RestResponse<T> : RestResponse {
     public static RestResponse<T> FromResponse(RestResponse response)
         => new(response.Request) {
             Content             = response.Content,
-            RawBytes            = response.RawBytes,
             ContentEncoding     = response.ContentEncoding,
+            ContentHeaders      = response.ContentHeaders,
             ContentLength       = response.ContentLength,
             ContentType         = response.ContentType,
             Cookies             = response.Cookies,
-            ErrorMessage        = response.ErrorMessage,
             ErrorException      = response.ErrorException,
+            ErrorMessage        = response.ErrorMessage,
             Headers             = response.Headers,
-            ContentHeaders      = response.ContentHeaders,
             IsSuccessStatusCode = response.IsSuccessStatusCode,
+            RawBytes            = response.RawBytes,
             ResponseStatus      = response.ResponseStatus,
             ResponseUri         = response.ResponseUri,
+            RootElement         = response.RootElement,
             Server              = response.Server,
             StatusCode          = response.StatusCode,
             StatusDescription   = response.StatusDescription,
-            RootElement         = response.RootElement
+            Version             = response.Version
         };
-
-    public RestResponse(RestRequest request) : base(request) { }
 }
 
 /// <summary>
 /// Container for data sent back from API
 /// </summary>
 [DebuggerDisplay($"{{{nameof(DebuggerDisplay)}()}}")]
-public class RestResponse : RestResponseBase {
+public class RestResponse(RestRequest request) : RestResponseBase(request) {
     internal static async Task<RestResponse> FromHttpResponse(
         HttpResponseMessage     httpResponse,
         RestRequest             request,
@@ -83,29 +82,27 @@ public class RestResponse : RestResponseBase {
 
             return new RestResponse(request) {
                 Content             = content,
-                RawBytes            = bytes,
                 ContentEncoding     = httpResponse.Content?.Headers.ContentEncoding ?? Array.Empty<string>(),
-                Version             = httpResponse.RequestMessage?.Version,
+                ContentHeaders      = httpResponse.Content?.Headers.GetHeaderParameters(),
                 ContentLength       = httpResponse.Content?.Headers.ContentLength,
                 ContentType         = httpResponse.Content?.Headers.ContentType?.MediaType,
-                ResponseStatus      = calculateResponseStatus(httpResponse),
+                Cookies             = cookieCollection,
                 ErrorException      = httpResponse.MaybeException(),
+                Headers             = httpResponse.Headers.GetHeaderParameters(),
+                IsSuccessStatusCode = httpResponse.IsSuccessStatusCode,
+                RawBytes            = bytes,
+                ResponseStatus      = calculateResponseStatus(httpResponse),
                 ResponseUri         = httpResponse.RequestMessage?.RequestUri,
+                RootElement         = request.RootElement,
                 Server              = httpResponse.Headers.Server.ToString(),
                 StatusCode          = httpResponse.StatusCode,
                 StatusDescription   = httpResponse.ReasonPhrase,
-                IsSuccessStatusCode = httpResponse.IsSuccessStatusCode,
-                Headers             = httpResponse.Headers.GetHeaderParameters(),
-                ContentHeaders      = httpResponse.Content?.Headers.GetHeaderParameters(),
-                Cookies             = cookieCollection,
-                RootElement         = request.RootElement
+                Version             = httpResponse.RequestMessage?.Version
             };
         }
     }
 
-    public RestResponse(RestRequest request) : base(request) { }
-
-    public RestResponse() : base(new RestRequest()) { }
+    public RestResponse() : this(new RestRequest()) { }
 }
 
 public delegate ResponseStatus CalculateResponseStatus(HttpResponseMessage httpResponse);

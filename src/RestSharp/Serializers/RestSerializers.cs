@@ -19,11 +19,9 @@ using RestSharp.Serializers.Xml;
 
 namespace RestSharp.Serializers;
 
-public class RestSerializers {
-    public IReadOnlyDictionary<DataFormat, SerializerRecord> Serializers { get; }
-
-    public RestSerializers(Dictionary<DataFormat, SerializerRecord> records)
-        => Serializers = new ReadOnlyDictionary<DataFormat, SerializerRecord>(records);
+public class RestSerializers(Dictionary<DataFormat, SerializerRecord> records) {
+    [PublicAPI]
+    public IReadOnlyDictionary<DataFormat, SerializerRecord> Serializers { get; } = new ReadOnlyDictionary<DataFormat, SerializerRecord>(records);
 
     public RestSerializers(SerializerConfig config) : this(config.Serializers) { }
 
@@ -34,11 +32,14 @@ public class RestSerializers {
 
     internal string[] GetAcceptedContentTypes() => Serializers.SelectMany(x => x.Value.AcceptedContentTypes).Distinct().ToArray();
 
-    internal RestResponse<T> Deserialize<T>(RestRequest request, RestResponse raw, ReadOnlyRestClientOptions options) {
+    internal async ValueTask<RestResponse<T>> Deserialize<T>(RestRequest request, RestResponse raw, ReadOnlyRestClientOptions options, CancellationToken cancellationToken) {
         var response = RestResponse<T>.FromResponse(raw);
 
         try {
+            await OnBeforeDeserialization(raw, cancellationToken).ConfigureAwait(false);
+#pragma warning disable CS0618 // Type or member is obsolete
             request.OnBeforeDeserialization?.Invoke(raw);
+#pragma warning restore CS0618 // Type or member is obsolete
             response.Data = DeserializeContent<T>(raw);
         }
         catch (Exception ex) {
@@ -54,6 +55,13 @@ public class RestSerializers {
         return response;
     }
    
+    static async ValueTask OnBeforeDeserialization(RestResponse response, CancellationToken cancellationToken) {
+        if (response.Request.Interceptors == null) return;
+
+        foreach (var interceptor in response.Request.Interceptors) {
+            await interceptor.BeforeDeserialization(response, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// Deserialize the response content into the specified type
@@ -74,13 +82,14 @@ public class RestSerializers {
         // This can happen when a request returns for example a 404 page instead of the requested JSON/XML resource
         var deserializer = GetContentDeserializer(response);
 
-        if (deserializer is IXmlDeserializer xml && response.Request is RestXmlRequest xmlRequest) {
-            if (xmlRequest.XmlNamespace.IsNotEmpty()) xml.Namespace = xmlRequest.XmlNamespace!;
+        if (deserializer is not IXmlDeserializer xml || response.Request is not RestXmlRequest xmlRequest)
+            return deserializer != null ? deserializer.Deserialize<T>(response) : default;
 
-            if (xml is IWithDateFormat withDateFormat && xmlRequest.DateFormat.IsNotEmpty()) withDateFormat.DateFormat = xmlRequest.DateFormat!;
-        }
+        if (xmlRequest.XmlNamespace.IsNotEmpty()) xml.Namespace = xmlRequest.XmlNamespace!;
 
-        return deserializer != null ? deserializer.Deserialize<T>(response) : default;
+        if (xml is IWithDateFormat withDateFormat && xmlRequest.DateFormat.IsNotEmpty()) withDateFormat.DateFormat = xmlRequest.DateFormat!;
+
+        return deserializer.Deserialize<T>(response);
     }
 
     IDeserializer? GetContentDeserializer(RestResponseBase response) {

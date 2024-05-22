@@ -1,20 +1,9 @@
 ﻿using System.Net;
 using System.Reflection;
-using RestSharp.Tests.Shared.Extensions;
 
 namespace RestSharp.Tests.Shared.Fixtures; 
 
 public static class Handlers {
-    /// <summary>
-    /// Echoes the request input back to the output.
-    /// </summary>
-    public static void Echo(HttpListenerContext context) => context.Request.InputStream.CopyTo(context.Response.OutputStream);
-
-    /// <summary>
-    /// Echoes the given value back to the output.
-    /// </summary>
-    public static Action<HttpListenerContext> EchoValue(string value) => ctx => ctx.Response.OutputStream.WriteStringUtf8(value);
-
     /// <summary>
     /// T should be a class that implements methods whose names match the urls being called, and take one parameter, an
     /// HttpListenerContext.

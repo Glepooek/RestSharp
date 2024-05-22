@@ -29,6 +29,7 @@ public class ContentType : IEquatable<ContentType> {
     public static readonly ContentType Json           = "application/json";
     public static readonly ContentType Xml            = "application/xml";
     public static readonly ContentType Plain          = "text/plain";
+    public static readonly ContentType Csv            = "text/csv";
     public static readonly ContentType Binary         = "application/octet-stream";
     public static readonly ContentType GZip           = "application/x-gzip";
     public static readonly ContentType FormUrlEncoded = "application/x-www-form-urlencoded";
@@ -59,11 +60,11 @@ public class ContentType : IEquatable<ContentType> {
         };
 
     public static readonly string[] JsonAccept = {
-        "application/json", "text/json", "text/x-json", "text/javascript"
+        Json, "text/json", "text/x-json", "text/javascript"
     };
 
     public static readonly string[] XmlAccept = {
-        "application/xml", "text/xml"
+        Xml, "text/xml"
     };
 
     readonly string _value;

@@ -14,10 +14,13 @@
 
 using System.Net;
 using RestSharp.Extensions;
+using RestSharp.Interceptors;
 
 namespace RestSharp;
 
 public partial class RestClient {
+    // Default HttpClient timeout 
+    public TimeSpan DefaultTimeout = TimeSpan.FromSeconds(100);
     /// <inheritdoc />
     public async Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) {
         using var internalResponse = await ExecuteRequestAsync(request, cancellationToken).ConfigureAwait(false);
@@ -33,6 +36,7 @@ public partial class RestClient {
                 )
                 .ConfigureAwait(false)
             : GetErrorResponse(request, internalResponse.Exception, internalResponse.TimeoutToken);
+        await OnAfterRequest(response, cancellationToken).ConfigureAwait(false);
 
         return Options.ThrowOnAnyError ? response.ThrowIfError() : response;
     }
@@ -69,6 +73,21 @@ public partial class RestClient {
         bool TimedOut() => timeoutToken.IsCancellationRequested || exception.Message.Contains("HttpClient.Timeout");
     }
 
+    void CombineInterceptors(RestRequest request) {
+        if (request.Interceptors == null) {
+            if (Options.Interceptors == null) {
+                return;
+            }
+
+            request.Interceptors = Options.Interceptors.ToList();
+            return;
+        }
+
+        if (Options.Interceptors != null) {
+            request.Interceptors.AddRange(Options.Interceptors);
+        }
+    }
+
     async Task<HttpResponse> ExecuteRequestAsync(RestRequest request, CancellationToken cancellationToken) {
         Ensure.NotNull(request, nameof(request));
 
@@ -77,7 +96,8 @@ public partial class RestClient {
             throw new ObjectDisposedException(nameof(RestClient));
         }
 
-        await OnBeforeSerialization(request).ConfigureAwait(false);   
+        CombineInterceptors(request);
+        await OnBeforeRequest(request, cancellationToken).ConfigureAwait(false);
         request.ValidateParameters();
         var authenticator = request.Authenticator ?? Options.Authenticator;
 
@@ -90,20 +110,20 @@ public partial class RestClient {
         var httpMethod = AsHttpMethod(request.Method);
         var url        = this.BuildUri(request);
 
-        using var message    = new HttpRequestMessage(httpMethod, url) { Content = requestContent.BuildContent() };
+        using var message = new HttpRequestMessage(httpMethod, url);
+        message.Content              = requestContent.BuildContent();
         message.Headers.Host         = Options.BaseHost;
         message.Headers.CacheControl = request.CachePolicy ?? Options.CachePolicy;
 
-        using var timeoutCts = new CancellationTokenSource(request.Timeout > 0 ? request.Timeout : int.MaxValue);
+        using var timeoutCts = new CancellationTokenSource(request.Timeout ?? Options.Timeout ?? DefaultTimeout);
         using var cts        = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
 
         var ct = cts.Token;
 
-        
         HttpResponseMessage? responseMessage;
         // Make sure we have a cookie container if not provided in the request
-        CookieContainer cookieContainer = request.CookieContainer ??= new CookieContainer();
-        
+        var cookieContainer = request.CookieContainer ??= new CookieContainer();
+
         var headers = new RequestHeaders()
             .AddHeaders(request.Parameters)
             .AddHeaders(DefaultParameters)
@@ -112,11 +132,14 @@ public partial class RestClient {
             .AddCookieHeaders(url, Options.CookieContainer);
 
         message.AddHeaders(headers);
+#pragma warning disable CS0618 // Type or member is obsolete
         if (request.OnBeforeRequest != null) await request.OnBeforeRequest(message).ConfigureAwait(false);
-        await OnBeforeRequest(message).ConfigureAwait(false);
-        
+#pragma warning restore CS0618 // Type or member is obsolete
+        await OnBeforeHttpRequest(request, message, cancellationToken).ConfigureAwait(false);
+
         try {
             responseMessage = await HttpClient.SendAsync(message, request.CompletionOption, ct).ConfigureAwait(false);
+
             // Parse all the cookies from the response and update the cookie jar with cookies
             if (responseMessage.Headers.TryGetValues(KnownHeaders.SetCookie, out var cookiesHeader)) {
                 // ReSharper disable once PossibleMultipleEnumeration
@@ -128,37 +151,43 @@ public partial class RestClient {
         catch (Exception ex) {
             return new HttpResponse(null, url, null, ex, timeoutCts.Token);
         }
+
+#pragma warning disable CS0618 // Type or member is obsolete
         if (request.OnAfterRequest != null) await request.OnAfterRequest(responseMessage).ConfigureAwait(false);
-        await OnAfterRequest(responseMessage).ConfigureAwait(false);
+#pragma warning restore CS0618 // Type or member is obsolete
+        await OnAfterHttpRequest(request, responseMessage, cancellationToken).ConfigureAwait(false);
         return new HttpResponse(responseMessage, url, cookieContainer, null, timeoutCts.Token);
-        
     }
 
-    /// <summary>
-    /// Will be called before the Request becomes Serialized
-    /// </summary>
-    /// <param name="request">RestRequest before it will be serialized</param>
-    async Task OnBeforeSerialization(RestRequest request) {
-        foreach (var interceptor in Options.Interceptors) {
-            await interceptor.InterceptBeforeSerialization(request); //.ThrowExceptionIfAvailable();
+    static async ValueTask OnBeforeRequest(RestRequest request, CancellationToken cancellationToken) {
+        if (request.Interceptors == null) return;
+
+        foreach (var interceptor in request.Interceptors) {
+            await interceptor.BeforeRequest(request, cancellationToken).ConfigureAwait(false);
         }
     }
-    /// <summary>
-    /// Will be called before the Request will be sent
-    /// </summary>
-    /// <param name="requestMessage">HttpRequestMessage ready to be sent</param>
-    async Task OnBeforeRequest(HttpRequestMessage requestMessage) {
-        foreach (var interceptor in Options.Interceptors) {
-            await interceptor.InterceptBeforeRequest(requestMessage);
+
+    static async ValueTask OnBeforeHttpRequest(RestRequest request, HttpRequestMessage requestMessage, CancellationToken cancellationToken) {
+        if (request.Interceptors == null) return;
+
+        foreach (var interceptor in request.Interceptors) {
+            await interceptor.BeforeHttpRequest(requestMessage, cancellationToken).ConfigureAwait(false);
         }
     }
-    /// <summary>
-    /// Will be called after the Response has been received from Server
-    /// </summary>
-    /// <param name="responseMessage">HttpResponseMessage as received from server</param>
-    async Task OnAfterRequest(HttpResponseMessage responseMessage) {
-        foreach (var interceptor in Options.Interceptors) {
-            await interceptor.InterceptAfterRequest(responseMessage);
+
+    static async ValueTask OnAfterHttpRequest(RestRequest request, HttpResponseMessage responseMessage, CancellationToken cancellationToken) {
+        if (request.Interceptors == null) return;
+
+        foreach (var interceptor in request.Interceptors) {
+            await interceptor.AfterHttpRequest(responseMessage, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    static async ValueTask OnAfterRequest(RestResponse response, CancellationToken cancellationToken) {
+        if (response.Request.Interceptors == null) return;
+
+        foreach (var interceptor in response.Request.Interceptors) {
+            await interceptor.AfterRequest(response, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -172,7 +201,7 @@ public partial class RestClient {
         public void Dispose() => ResponseMessage?.Dispose();
     }
 
-    static HttpMethod AsHttpMethod(Method method)
+    internal static HttpMethod AsHttpMethod(Method method)
         => method switch {
             Method.Get     => HttpMethod.Get,
             Method.Post    => HttpMethod.Post,
