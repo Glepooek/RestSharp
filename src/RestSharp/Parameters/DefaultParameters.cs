@@ -28,12 +28,11 @@ public sealed class DefaultParameters(ReadOnlyRestClientOptions options) : Param
     [MethodImpl(MethodImplOptions.Synchronized)]
     public DefaultParameters AddParameter(Parameter parameter) {
         if (parameter.Type == ParameterType.RequestBody)
-            throw new NotSupportedException(
-                "Cannot set request body using default parameters. Use Request.AddBody() instead."
-            );
+            throw new NotSupportedException("Cannot set request body using default parameters. Use Request.AddBody() instead.");
 
         if (!options.AllowMultipleDefaultParametersWithSameName &&
-            !MultiParameterTypes.Contains(parameter.Type)        &&
+            parameter.Type != ParameterType.HttpHeader &&
+            !MultiParameterTypes.Contains(parameter.Type) &&
             this.Any(x => x.Name == parameter.Name)) {
             throw new ArgumentException("A default parameters with the same name has already been added", nameof(parameter));
         }
@@ -69,5 +68,5 @@ public sealed class DefaultParameters(ReadOnlyRestClientOptions options) : Param
             RemoveParameter(Ensure.NotEmptyString(parameter.Name, "Parameter name"), parameter.Type)
                 .AddParameter(parameter);
 
-    static readonly ParameterType[] MultiParameterTypes = { ParameterType.QueryString, ParameterType.GetOrPost };
+    static readonly ParameterType[] MultiParameterTypes = [ParameterType.QueryString, ParameterType.GetOrPost];
 }

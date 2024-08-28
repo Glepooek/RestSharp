@@ -20,7 +20,12 @@ namespace RestSharp;
 [PublicAPI]
 public static partial class RestClientExtensions {
     [PublicAPI]
-    public static ValueTask<RestResponse<T>> Deserialize<T>(this IRestClient client, RestResponse response, CancellationToken cancellationToken)
+    [Obsolete("Please use the async overload with a cancellation token")]
+    public static RestResponse<T> Deserialize<T>(this IRestClient client, RestResponse response)
+        => AsyncHelpers.RunSync(() => client.Serializers.Deserialize<T>(response.Request, response, client.Options, CancellationToken.None).AsTask());
+
+    [PublicAPI]
+    public static ValueTask<RestResponse<T>> Deserialize<T>(this IRestClient client, RestResponse response, CancellationToken cancellationToken)    
         => client.Serializers.Deserialize<T>(response.Request, response, client.Options, cancellationToken);
 
     /// <summary>
@@ -49,6 +54,14 @@ public static partial class RestClientExtensions {
     /// <param name="request">Request to be executed</param>
     public static RestResponse<T> Execute<T>(this IRestClient client, RestRequest request)
         => AsyncHelpers.RunSync(() => client.ExecuteAsync<T>(request));
+
+    /// <summary>
+    /// Executes the request synchronously, authenticating if needed
+    /// </summary>
+    /// <param name="client"></param>
+    /// <param name="request">Request to be executed</param>
+    public static RestResponse Execute(this IRestClient client, RestRequest request)
+        => AsyncHelpers.RunSync(() => client.ExecuteAsync(request));
 
     /// <summary>
     /// Executes the request asynchronously, authenticating if needed
@@ -173,7 +186,7 @@ public static partial class RestClientExtensions {
         using var reader = new StreamReader(stream);
 
         while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested) {
-#if NET7_0
+#if NET7_0_OR_GREATER
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 #else
             var line = await reader.ReadLineAsync().ConfigureAwait(false);

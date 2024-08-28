@@ -15,9 +15,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
-using RestSharp.Authenticators;
-using RestSharp.Interceptors;
 using RestSharp.Serializers;
+
+// ReSharper disable InvertIf
 
 // ReSharper disable VirtualMemberCallInConstructor
 #pragma warning disable 618
@@ -74,8 +74,8 @@ public partial class RestClient : IRestClient {
         }
 
         ConfigureSerializers(configureSerialization);
-        Options = new ReadOnlyRestClientOptions(options);
-        DefaultParameters = new DefaultParameters(Options);
+        Options           = new(options);
+        DefaultParameters = new(Options);
 
         if (useClientFactory) {
             _disposeHttpClient = false;
@@ -92,8 +92,12 @@ public partial class RestClient : IRestClient {
             var handler = new HttpClientHandler();
             ConfigureHttpMessageHandler(handler, options);
             var finalHandler = options.ConfigureMessageHandler?.Invoke(handler) ?? handler;
-            var httpClient = new HttpClient(finalHandler);
+            var httpClient   = new HttpClient(finalHandler);
             ConfigureHttpClient(httpClient, options);
+
+            // We will use Options.Timeout in ExecuteAsInternalAsync method
+            httpClient.Timeout = Timeout.InfiniteTimeSpan;
+
             ConfigureDefaultParameters(options);
             configureDefaultHeaders?.Invoke(httpClient.DefaultRequestHeaders);
             return httpClient;
@@ -117,8 +121,7 @@ public partial class RestClient : IRestClient {
         ConfigureHeaders?       configureDefaultHeaders = null,
         ConfigureSerialization? configureSerialization  = null,
         bool                    useClientFactory        = false
-    )
-        : this(ConfigureOptions(new RestClientOptions(), configureRestClient), configureDefaultHeaders, configureSerialization, useClientFactory) { }
+    ) : this(ConfigureOptions(new(), configureRestClient), configureDefaultHeaders, configureSerialization, useClientFactory) { }
 
     /// <inheritdoc />
     /// <summary>
@@ -137,7 +140,7 @@ public partial class RestClient : IRestClient {
         bool                    useClientFactory        = false
     )
         : this(
-            ConfigureOptions(new RestClientOptions { BaseUrl = baseUrl }, configureRestClient),
+            ConfigureOptions(new() { BaseUrl = baseUrl }, configureRestClient),
             configureDefaultHeaders,
             configureSerialization,
             useClientFactory
@@ -181,8 +184,8 @@ public partial class RestClient : IRestClient {
         }
 
         var opt = options ?? new RestClientOptions();
-        Options           = new ReadOnlyRestClientOptions(opt);
-        DefaultParameters = new DefaultParameters(Options);
+        Options           = new(opt);
+        DefaultParameters = new(Options);
 
         if (options != null) {
             ConfigureHttpClient(httpClient, options);
@@ -203,7 +206,7 @@ public partial class RestClient : IRestClient {
         ConfigureRestClient?    configureRestClient    = null,
         ConfigureSerialization? configureSerialization = null
     )
-        : this(httpClient, ConfigureOptions(new RestClientOptions(), configureRestClient), disposeHttpClient, configureSerialization) { }
+        : this(httpClient, ConfigureOptions(new(), configureRestClient), disposeHttpClient, configureSerialization) { }
 
     /// <summary>
     /// Creates a new instance of RestSharp using the message handler provided. By default, HttpClient disposes the provided handler
@@ -222,9 +225,6 @@ public partial class RestClient : IRestClient {
         : this(new HttpClient(handler, disposeHandler), true, configureRestClient, configureSerialization) { }
 
     static void ConfigureHttpClient(HttpClient httpClient, RestClientOptions options) {
-        // We will use Options.Timeout in ExecuteAsInternalAsync method
-        httpClient.Timeout = Timeout.InfiniteTimeSpan;
-
         if (options.Expect100Continue != null) httpClient.DefaultRequestHeaders.ExpectContinue = options.Expect100Continue;
     }
 
@@ -233,21 +233,21 @@ public partial class RestClient : IRestClient {
 #if NET
         if (!OperatingSystem.IsBrowser()) {
 #endif
-            handler.UseCookies             = false;
-            handler.Credentials            = options.Credentials;
-            handler.UseDefaultCredentials  = options.UseDefaultCredentials;
-            handler.AutomaticDecompression = options.AutomaticDecompression;
-            handler.PreAuthenticate        = options.PreAuthenticate;
-            if (options.MaxRedirects.HasValue) handler.MaxAutomaticRedirections = options.MaxRedirects.Value;
+        handler.UseCookies             = false;
+        handler.Credentials            = options.Credentials;
+        handler.UseDefaultCredentials  = options.UseDefaultCredentials;
+        handler.AutomaticDecompression = options.AutomaticDecompression;
+        handler.PreAuthenticate        = options.PreAuthenticate;
+        if (options.MaxRedirects.HasValue) handler.MaxAutomaticRedirections = options.MaxRedirects.Value;
 
-            if (options.RemoteCertificateValidationCallback != null)
-                handler.ServerCertificateCustomValidationCallback =
-                    (request, cert, chain, errors) => options.RemoteCertificateValidationCallback(request, cert, chain, errors);
+        if (options.RemoteCertificateValidationCallback != null)
+            handler.ServerCertificateCustomValidationCallback =
+                (request, cert, chain, errors) => options.RemoteCertificateValidationCallback(request, cert, chain, errors);
 
-            if (options.ClientCertificates != null) {
-                handler.ClientCertificates.AddRange(options.ClientCertificates);
-                handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-            }
+        if (options.ClientCertificates != null) {
+            handler.ClientCertificates.AddRange(options.ClientCertificates);
+            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+        }
 #if NET
         }
 #endif
@@ -257,7 +257,7 @@ public partial class RestClient : IRestClient {
         // ReSharper disable once InvertIf
         if (!OperatingSystem.IsBrowser() && !OperatingSystem.IsIOS() && !OperatingSystem.IsTvOS()) {
 #endif
-            if (handler.SupportsProxy) handler.Proxy = options.Proxy;
+        if (handler.SupportsProxy) handler.Proxy = options.Proxy;
 #if NET
         }
 #endif
@@ -269,15 +269,15 @@ public partial class RestClient : IRestClient {
         var serializerConfig = new SerializerConfig();
         serializerConfig.UseDefaultSerializers();
         configureSerialization?.Invoke(serializerConfig);
-        Serializers          = new RestSerializers(serializerConfig);
+        Serializers          = new(serializerConfig);
         AcceptedContentTypes = Serializers.GetAcceptedContentTypes();
     }
 
     void ConfigureDefaultParameters(RestClientOptions options) {
         if (options.UserAgent == null) return;
 
-        if (!options.AllowMultipleDefaultParametersWithSameName
-            && DefaultParameters.Any(parameter => parameter.Type == ParameterType.HttpHeader && parameter.Name == KnownHeaders.UserAgent))
+        if (!options.AllowMultipleDefaultParametersWithSameName &&
+            DefaultParameters.Any(parameter => parameter is { Type: ParameterType.HttpHeader, Name: KnownHeaders.UserAgent }))
             DefaultParameters.RemoveParameter(KnownHeaders.UserAgent, ParameterType.HttpHeader);
         DefaultParameters.AddParameter(Parameter.CreateParameter(KnownHeaders.UserAgent, options.UserAgent, ParameterType.HttpHeader));
     }

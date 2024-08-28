@@ -13,6 +13,7 @@
 // limitations under the License.
 // 
 
+using System.Collections.ObjectModel;
 using RestSharp.Interceptors;
 
 namespace RestSharp;
@@ -23,7 +24,7 @@ public partial class ReadOnlyRestClientOptions {
     // partial void CopyAdditionalProperties(RestClientOptions inner); 
     partial void CopyAdditionalProperties(RestClientOptions inner) => Interceptors = GetInterceptors(inner);
 
-    static IReadOnlyCollection<Interceptor>? GetInterceptors(RestClientOptions? options) {
+    static ReadOnlyCollection<Interceptor>? GetInterceptors(RestClientOptions? options) {
         if (options == null || options.Interceptors.Count == 0) return null;
 
         var interceptors = new List<Interceptor>(options.Interceptors);

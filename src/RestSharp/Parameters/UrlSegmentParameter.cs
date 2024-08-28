@@ -16,8 +16,8 @@ using System.Text.RegularExpressions;
 
 namespace RestSharp;
 
-public record UrlSegmentParameter : NamedParameter {
-    static readonly Regex RegexPattern = new("%2f", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+public partial record UrlSegmentParameter : NamedParameter {
+    static readonly Regex RegexPattern = Pattern();
 
     /// <summary>
     /// Instantiates a new query parameter instance that will be added to the request URL by replacing part of the absolute path.
@@ -29,8 +29,15 @@ public record UrlSegmentParameter : NamedParameter {
     public UrlSegmentParameter(string name, string value, bool encode = true)
         : base(
             name,
-            RegexPattern.Replace(Ensure.NotEmpty(value, nameof(value)), "/"),
+            RegexPattern.Replace(Ensure.NotEmptyString(value, nameof(value)), "/"),
             ParameterType.UrlSegment,
             encode
         ) { }
+
+#if NET7_0_OR_GREATER
+    [GeneratedRegex("%2f", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-NO")]
+    private static partial Regex Pattern();
+#else
+    static Regex Pattern() => new("%2f", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+#endif
 }

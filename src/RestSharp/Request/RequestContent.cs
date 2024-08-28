@@ -23,7 +23,7 @@ using static RestSharp.KnownHeaders;
 namespace RestSharp;
 
 class RequestContent(IRestClient client, RestRequest request) : IDisposable {
-    readonly List<Stream>         _streams    = new();
+    readonly List<Stream>         _streams    = [];
     readonly ParametersCollection _parameters = new RequestParameters(request.Parameters.Union(client.DefaultParameters));
 
     HttpContent? Content { get; set; }
@@ -32,7 +32,7 @@ class RequestContent(IRestClient client, RestRequest request) : IDisposable {
         var postParameters       = _parameters.GetContentParameters(request.Method).ToArray();
         var postParametersExists = postParameters.Length > 0;
         var bodyParametersExists = request.TryGetBodyParameter(out var bodyParameter);
-        var filesExists          = request.Files.Any();
+        var filesExists          = request.Files.Count != 0;
 
         if (request.HasFiles() ||
             BodyShouldBeMultipartForm(bodyParameter) ||
@@ -222,6 +222,12 @@ class RequestContent(IRestClient client, RestRequest request) : IDisposable {
 
     public void Dispose() {
         _streams.ForEach(x => x.Dispose());
-        Content?.Dispose();
+
+        try {
+            Content?.Dispose();
+        }
+        catch (Exception e) when (e is ObjectDisposedException or NullReferenceException) {
+            // Already disposed
+        }
     }
 }

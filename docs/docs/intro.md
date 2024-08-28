@@ -1,12 +1,12 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Quick start
 ---
 
 ## Introduction
 
 :::warning
-RestSharp v107 changes the library API surface and its behaviour significantly. We advise looking at [v107](/v107) docs to understand how to migrate to the latest version of RestSharp.
+RestSharp v107+ changes the library API surface and its behaviour significantly. We advise looking at [migration](/migration) docs to understand how to migrate to the latest version of RestSharp.
 :::
 
 The main purpose of RestSharp is to make synchronous and asynchronous calls to remote resources over HTTP. As the name suggests, the main audience of RestSharp are developers who use REST APIs. However, RestSharp can call any API over HTTP, as long as you have the resource URI and request parameters that you want to send comply with W3C HTTP standards.
@@ -74,7 +74,7 @@ var client = new RestClient(options);
 var timeline = await client.GetJsonAsync<HomeTimeline>("statuses/home_timeline.json", cancellationToken);
 ```
 
-Read [here](usage/usage.md#json-requests) about making JSON calls without preparing a request object.
+Read [here](usage/execute.md#json-requests) about making JSON calls without preparing a request object.
 
 ### Content type
 

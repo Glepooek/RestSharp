@@ -13,12 +13,6 @@
 // limitations under the License.
 //
 
-using System.Text;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
-
 namespace SourceGenerator;
 
 [Generator]
@@ -28,10 +22,7 @@ public class ImmutableGenerator : ISourceGenerator {
     public void Execute(GeneratorExecutionContext context) {
         var compilation = context.Compilation;
 
-        var mutableClasses = compilation.SyntaxTrees
-            .Select(tree => compilation.GetSemanticModel(tree))
-            .SelectMany(model => model.SyntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
-            .Where(syntax => syntax.AttributeLists.Any(list => list.Attributes.Any(attr => attr.Name.ToString() == "GenerateImmutable")));
+        var mutableClasses = compilation.FindAnnotatedClass("GenerateImmutable", strict: true);
 
         foreach (var mutableClass in mutableClasses) {
             var immutableClass = GenerateImmutableClass(mutableClass, compilation);
@@ -41,22 +32,24 @@ public class ImmutableGenerator : ISourceGenerator {
 
     static string GenerateImmutableClass(TypeDeclarationSyntax mutableClass, Compilation compilation) {
         var containingNamespace = compilation.GetSemanticModel(mutableClass.SyntaxTree).GetDeclaredSymbol(mutableClass)!.ContainingNamespace;
-
-        var namespaceName = containingNamespace.ToDisplayString();
-
-        var className = mutableClass.Identifier.Text;
-
-        var usings = mutableClass.SyntaxTree.GetCompilationUnitRoot().Usings.Select(u => u.ToString());
+        var namespaceName       = containingNamespace.ToDisplayString();
+        var className           = mutableClass.Identifier.Text;
+        var usings              = mutableClass.SyntaxTree.GetCompilationUnitRoot().Usings.Select(u => u.ToString());
 
         var properties = GetDefinitions(SyntaxKind.SetKeyword)
-            .Select(prop => $"    public {prop.Type} {prop.Identifier.Text} {{ get; }}")
+            .Select(
+                prop => {
+                    var xml = prop.GetLeadingTrivia().FirstOrDefault(x => x.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)).GetStructure();
+                    return $"/// {xml}    public {prop.Type} {prop.Identifier.Text} {{ get; }}";
+                }
+            )
             .ToArray();
 
         var props = GetDefinitions(SyntaxKind.SetKeyword).ToArray();
 
         const string argName = "inner";
-        var mutableProperties = props
-            .Select(prop => $"        {prop.Identifier.Text} = {argName}.{prop.Identifier.Text};");
+
+        var mutableProperties = props.Select(prop => $"        {prop.Identifier.Text} = {argName}.{prop.Identifier.Text};");
 
         var constructor = $$"""
                                 public ReadOnly{{className}}({{className}} {{argName}}) {
@@ -65,17 +58,19 @@ public class ImmutableGenerator : ISourceGenerator {
                                 }
                             """;
 
-        const string template = @"{Usings}
+        const string template = """
+                                {Usings}
 
-namespace {Namespace};
+                                namespace {Namespace};
 
-public partial class ReadOnly{ClassName} {
-{Constructor}
+                                public partial class ReadOnly{ClassName} {
+                                {Constructor}
+                                
+                                    partial void CopyAdditionalProperties({ClassName} {ArgName}); 
 
-    partial void CopyAdditionalProperties({ClassName} {ArgName}); 
-
-{Properties}
-}";
+                                {Properties}
+                                }
+                                """;
 
         var code = template
             .Replace("{Usings}", string.Join("\n", usings))
@@ -92,7 +87,8 @@ public partial class ReadOnly{ClassName} {
                 .OfType<PropertyDeclarationSyntax>()
                 .Where(
                     prop =>
-                        prop.AccessorList!.Accessors.Any(accessor => accessor.Keyword.IsKind(kind)) && prop.AttributeLists.All(list => list.Attributes.All(attr => attr.Name.ToString() != "Exclude"))
+                        prop.AccessorList!.Accessors.Any(accessor => accessor.Keyword.IsKind(kind)) &&
+                        prop.AttributeLists.All(list => list.Attributes.All(attr => attr.Name.ToString() != "Exclude"))
                 );
     }
 }

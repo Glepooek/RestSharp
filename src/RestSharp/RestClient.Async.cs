@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Net;
 using RestSharp.Extensions;
-using RestSharp.Interceptors;
 
 namespace RestSharp;
 
 public partial class RestClient {
     // Default HttpClient timeout 
-    public TimeSpan DefaultTimeout = TimeSpan.FromSeconds(100);
+    readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(100);
+
     /// <inheritdoc />
     public async Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) {
         using var internalResponse = await ExecuteRequestAsync(request, cancellationToken).ConfigureAwait(false);
@@ -44,7 +43,7 @@ public partial class RestClient {
     /// <inheritdoc />
     [PublicAPI]
     public async Task<Stream?> DownloadStreamAsync(RestRequest request, CancellationToken cancellationToken = default) {
-        // Make sure we only read the headers so we can stream the content body efficiently
+        // Make sure we only read the headers, so we can stream the content body efficiently
         request.CompletionOption = HttpCompletionOption.ResponseHeadersRead;
         var response = await ExecuteRequestAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -92,10 +91,13 @@ public partial class RestClient {
         Ensure.NotNull(request, nameof(request));
 
         // Make sure we are not disposed of when someone tries to call us!
+#if NET8_0_OR_GREATER
+        ObjectDisposedException.ThrowIf(_disposed, this);
+#else
         if (_disposed) {
             throw new ObjectDisposedException(nameof(RestClient));
         }
-
+#endif
         CombineInterceptors(request);
         await OnBeforeRequest(request, cancellationToken).ConfigureAwait(false);
         request.ValidateParameters();
@@ -114,8 +116,9 @@ public partial class RestClient {
         message.Content              = requestContent.BuildContent();
         message.Headers.Host         = Options.BaseHost;
         message.Headers.CacheControl = request.CachePolicy ?? Options.CachePolicy;
+        message.Version              = request.Version;
 
-        using var timeoutCts = new CancellationTokenSource(request.Timeout ?? Options.Timeout ?? DefaultTimeout);
+        using var timeoutCts = new CancellationTokenSource(request.Timeout ?? Options.Timeout ?? _defaultTimeout);
         using var cts        = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
 
         var ct = cts.Token;

@@ -13,11 +13,12 @@
 // limitations under the License.
 // 
 
-using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Reflection;
+#if NET
 using System.Runtime.Versioning;
+#endif
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using RestSharp.Authenticators;
@@ -38,6 +39,7 @@ public class RestClientOptions {
 
     public RestClientOptions() { }
 
+    // ReSharper disable once MemberCanBePrivate.Global
     public RestClientOptions(Uri baseUrl) => BaseUrl = baseUrl;
 
     public RestClientOptions(string baseUrl) : this(new Uri(Ensure.NotEmptyString(baseUrl, nameof(baseUrl)))) { }
@@ -69,7 +71,7 @@ public class RestClientOptions {
     /// List of interceptors that will be executed before the request is sent
     /// </summary>
     [Exclude]
-    public List<Interceptor> Interceptors { get; set; } = new();
+    public List<Interceptor> Interceptors { get; set; } = [];
 
     /// <summary>
     /// Passed to <see cref="HttpMessageHandler"/> <code>Credentials</code> property
@@ -80,7 +82,7 @@ public class RestClientOptions {
     public ICredentials? Credentials { get; set; }
 
     /// <summary>
-    /// Determine whether or not the "default credentials" (e.g. the user account under which the current process is
+    /// Determine whether the "default credentials" (e.g. the user account under which the current process is
     /// running) will be sent along to the server. The default is false.
     /// Passed to <see cref="HttpMessageHandler"/> <code>UseDefaultCredentials</code> property
     /// </summary>
@@ -180,6 +182,16 @@ public class RestClientOptions {
     public CookieContainer? CookieContainer { get; set; }
 
     /// <summary>
+    /// Maximum request duration in milliseconds. When the request timeout is specified using <seealso cref="RestRequest.Timeout"/>,
+    /// the lowest value between the client timeout and request timeout will be used.
+    /// </summary>
+    [Obsolete("Use Timeout instead.")]
+    public int MaxTimeout {
+        get => (int) (Timeout?.TotalMilliseconds ?? 0);
+        set => Timeout = TimeSpan.FromMilliseconds(value);
+    }
+
+    /// <summary>
     /// Request duration. Used when the request timeout is not specified using <seealso cref="RestRequest.Timeout"/>,
     /// </summary>
     public TimeSpan? Timeout { get; set; }
@@ -208,6 +220,7 @@ public class RestClientOptions {
 
     /// <summary>
     /// Set to true to allow multiple default parameters with the same name. Default is false.
+    /// This setting doesn't apply to headers as multiple header values for the same key is allowed.
     /// </summary>
     public bool AllowMultipleDefaultParametersWithSameName { get; set; }
 
