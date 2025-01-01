@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Globalization;
 
-namespace RestSharp.Tests;
+namespace RestSharp.Tests.Parameters;
 
 public partial class ObjectParameterTests {
     public ObjectParameterTests() => Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;

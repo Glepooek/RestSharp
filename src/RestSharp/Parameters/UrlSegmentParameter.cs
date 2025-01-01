@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System.Text.RegularExpressions;
+using RestSharp.Extensions;
 
 namespace RestSharp;
 
@@ -26,10 +27,11 @@ public partial record UrlSegmentParameter : NamedParameter {
     /// <param name="name">Parameter name</param>
     /// <param name="value">Parameter value</param>
     /// <param name="encode">Optional: encode the value, default is true</param>
-    public UrlSegmentParameter(string name, string value, bool encode = true)
+    /// <param name="replaceEncodedSlash">Optional: whether to replace all %2f and %2F in the parameter value with '/', default is true</param>
+    public UrlSegmentParameter(string name, string value, bool encode = true, bool replaceEncodedSlash = true)
         : base(
             name,
-            RegexPattern.Replace(Ensure.NotEmptyString(value, nameof(value)), "/"),
+            value.IsEmpty() ? value : replaceEncodedSlash ? RegexPattern.Replace(value, "/") : value,
             ParameterType.UrlSegment,
             encode
         ) { }

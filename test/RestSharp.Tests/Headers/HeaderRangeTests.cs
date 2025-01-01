@@ -1,6 +1,6 @@
-﻿namespace RestSharp.Tests;
+﻿namespace RestSharp.Tests.Parameters;
 
-public class AddRangeTests {
+public class HeaderRangeTests {
     [Fact]
     public async Task ShouldParseOutLongRangeSpecifier() {
         using var restClient = new RestClient("http://localhost");

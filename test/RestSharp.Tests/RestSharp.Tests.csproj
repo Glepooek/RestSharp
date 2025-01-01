@@ -29,17 +29,11 @@
         <None Update="SampleData\underscore_prefix.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
     <ItemGroup>
-      <Compile Update="ObjectParameterTests.ArrayData.cs">
-        <DependentUpon>ObjectParameterTests.cs</DependentUpon>
+      <Compile Update="UrlBuilderTests.Get.cs">
+        <DependentUpon>UrlBuilderTests.cs</DependentUpon>
       </Compile>
-      <Compile Update="ObjectParameterTests.CsvData.cs">
-        <DependentUpon>ObjectParameterTests.cs</DependentUpon>
-      </Compile>
-      <Compile Update="ObjectParameterTests.FormattedData.cs">
-        <DependentUpon>ObjectParameterTests.cs</DependentUpon>
-      </Compile>
-      <Compile Update="ObjectParameterTests.NamedData.cs">
-        <DependentUpon>ObjectParameterTests.cs</DependentUpon>
+      <Compile Update="UrlBuilderTests.Post.cs">
+        <DependentUpon>UrlBuilderTests.cs</DependentUpon>
       </Compile>
     </ItemGroup>
 </Project>

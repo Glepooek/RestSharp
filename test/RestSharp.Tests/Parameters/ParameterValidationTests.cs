@@ -1,4 +1,4 @@
-﻿namespace RestSharp.Tests;
+﻿namespace RestSharp.Tests.Parameters;
 
 public class ParameterValidationTests {
     [Fact]
