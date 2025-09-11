@@ -68,7 +68,7 @@ static class UriExtensions {
             builder.Path = builder.Path.UrlDecode().Replace(paramPlaceHolder, paramValue);
         }
 
-        return new UrlSegmentParamsValues(builder.Uri, assembled);
+        return new(builder.Uri, assembled);
     }
 }
 
