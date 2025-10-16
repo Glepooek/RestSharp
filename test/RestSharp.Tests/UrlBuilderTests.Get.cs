@@ -62,8 +62,7 @@ public partial class UrlBuilderTests {
 
     [Fact]
     public void GET_with_Invalid_Url_string_throws_exception()
-        => Assert.Throws<UriFormatException>(
-            () => { _ = new RestClient("invalid url"); }
+        => Assert.Throws<UriFormatException>(() => { _ = new RestClient("invalid url"); }
         );
 
     [Fact]
@@ -107,7 +106,12 @@ public partial class UrlBuilderTests {
     [Fact]
     public void GET_with_resource_containing_null_token() {
         var request = new RestRequest($"/{Resource}/{{foo}}");
-        Assert.Throws<ArgumentNullException>(() => request.AddUrlSegment("foo", null!));
+        request.AddUrlSegment("foo", null);
+
+        using var client = new RestClient(new Uri(Base));
+
+        var output = client.BuildUri(request);
+        Assert.Equal(new($"{Base}/{Resource}/"), output);
     }
 
     [Fact]

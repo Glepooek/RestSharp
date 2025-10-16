@@ -28,10 +28,10 @@ public partial record UrlSegmentParameter : NamedParameter {
     /// <param name="value">Parameter value</param>
     /// <param name="encode">Optional: encode the value, default is true</param>
     /// <param name="replaceEncodedSlash">Optional: whether to replace all %2f and %2F in the parameter value with '/', default is true</param>
-    public UrlSegmentParameter(string name, string value, bool encode = true, bool replaceEncodedSlash = true)
+    public UrlSegmentParameter(string name, string? value, bool encode = true, bool replaceEncodedSlash = true)
         : base(
             name,
-            value.IsEmpty() ? value : replaceEncodedSlash ? RegexPattern.Replace(value, "/") : value,
+            value.IsEmpty() ? string.Empty : replaceEncodedSlash ? RegexPattern.Replace(value, "/") : value,
             ParameterType.UrlSegment,
             encode
         ) { }
