@@ -13,7 +13,7 @@
     <MicrosoftTestHostVer>8.0.21</MicrosoftTestHostVer>
   </PropertyGroup>
   <PropertyGroup Label="Package versions for pre-.NET 10" Condition="'$(TargetFramework)' != 'net10.0'">
-    <SystemTextJsonVer>9.0.10</SystemTextJsonVer>
+    <SystemTextJsonVer>10.0.0</SystemTextJsonVer>
   </PropertyGroup>
   <ItemGroup Label="Runtime dependencies">
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
