@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.Http" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\RestSharp\RestSharp.csproj" />
+    </ItemGroup>
+</Project>
