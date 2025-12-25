@@ -15,7 +15,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="HttpMultipartParser"/>
-        <PackageReference Include="HttpTracer"/>
         <PackageReference Include="Polly"/>
         <PackageReference Include="PolySharp" PrivateAssets="All"/>
         <PackageReference Include="WireMock.Net"/>
@@ -26,6 +25,7 @@
         <Using Include="WireMock.RequestBuilders"/>
         <Using Include="WireMock.ResponseBuilders"/>
         <Using Include="System.Net"/>
-        <Using Include="RestSharp.Tests.Integrated.Server"/>
+        <Using Include="RestSharp.Tests.Shared"/>
+        <Using Include="RestSharp.Tests.Shared.Server"/>
     </ItemGroup>
 </Project>

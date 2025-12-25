@@ -22,6 +22,7 @@ class GenerateImmutableAttribute : Attribute;
 class GenerateCloneAttribute : Attribute {
     public Type?   BaseType { get; set; }
     public string? Name     { get; set; }
+    public bool    Mutate   { get; set; }
 };
 
 [AttributeUsage(AttributeTargets.Property)]

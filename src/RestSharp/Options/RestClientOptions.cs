@@ -32,7 +32,8 @@ using RestSharp.Interceptors;
 namespace RestSharp;
 
 [GenerateImmutable]
-public class RestClientOptions {
+[GenerateClone(BaseType = typeof(RestClientOptions), Name = "CopyFrom", Mutate = true)]
+public partial class RestClientOptions {
     static readonly Version Version = new AssemblyName(typeof(RestClientOptions).Assembly.FullName!).Version!;
 
     static readonly string DefaultUserAgent = $"RestSharp/{Version}";
@@ -207,6 +208,12 @@ public class RestClientOptions {
     /// Default is false.
     /// </summary>
     public bool ThrowOnAnyError { get; set; }
+
+    /// <summary>
+    /// When set to false, the client doesn't set the `ErrorException` property for responses with unsuccessful status codes.
+    /// Default is true.
+    /// </summary>
+    public bool SetErrorExceptionOnUnsuccessfulStatusCode { get; set; } = true;
 
     /// <summary>
     /// Set to true to allow multiple default parameters with the same name. Default is false.
