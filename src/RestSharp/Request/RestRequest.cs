@@ -72,7 +72,8 @@ public class RestRequest {
     public RestRequest(Uri resource, Method method = Method.Get)
         : this(resource.IsAbsoluteUri ? resource.AbsoluteUri : resource.OriginalString, method) { }
 
-    readonly List<FileParameter> _files = [];
+    readonly List<FileParameter> _files   = [];
+    readonly List<Cookie>        _cookies = [];
 
     /// <summary>
     /// Always send a multipart/form-data request - even when no Files are present.
@@ -86,10 +87,9 @@ public class RestRequest {
 
     /// <summary>
     /// When set to true, parameter values in a multipart form data requests will be enclosed in
-    /// quotation marks. Default is false. Enable it if the remote endpoint requires parameters
-    /// to be in quotes (for example, FreshDesk API). 
+    /// quotation marks. Default is true, as per RFC 7578.
     /// </summary>
-    public bool MultipartFormQuoteParameters { get; set; }
+    public bool MultipartFormQuoteParameters { get; set; } = true;
 
     /// <summary>
     /// When set to true, the form boundary part of the content type will be enclosed in
@@ -131,8 +131,16 @@ public class RestRequest {
     public Method Method { get; set; }
 
     /// <summary>
-    /// Custom request timeout
+    /// Custom request timeout. Overrides <see cref="RestClientOptions.Timeout"/> if set.
+    /// If not set, uses the client-level timeout or the default of 100 seconds.
     /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><description>Set to <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> (or <c>TimeSpan.FromMilliseconds(-1)</c>) for no timeout</description></item>
+    /// <item><description>Set to <see cref="TimeSpan.Zero"/> to cancel the request immediately</description></item>
+    /// <item><description>Negative values (other than -1 millisecond) will throw <see cref="ArgumentOutOfRangeException"/></description></item>
+    /// </list>
+    /// </remarks>
     public TimeSpan? Timeout { get; set; }
 
     /// <summary>
@@ -255,4 +263,16 @@ public class RestRequest {
     }
 
     internal RestRequest AddFile(FileParameter file) => this.With(x => x._files.Add(file));
+
+    internal RestRequest AddCookie(Cookie cookie) => this.With(x => x._cookies.Add(cookie));
+
+    /// <summary>
+    /// Cookies added via the 2-param <c>AddCookie(name, value)</c> overload that have not yet been
+    /// resolved into <see cref="CookieContainer"/>. Domain is inferred from the request URL at
+    /// execution time. Interceptors can inspect this list in <c>BeforeRequest</c> to see cookies
+    /// that will be sent.
+    /// </summary>
+    public IReadOnlyList<Cookie> PendingCookies => _cookies;
+
+    internal void ClearPendingCookies() => _cookies.Clear();
 }

@@ -5,6 +5,8 @@ If there is a network transport error (network is down, failed DNS lookup, etc.)
 If an API returns a 404, `ResponseStatus` will still be `Completed`. If you need access to the HTTP status code returned, you will find it at `RestResponse.StatusCode`.
 The `Status` property is an indicator of completion independent of the API error handling.
 
+When a request times out, `ResponseStatus` is set to `TimedOut` and `ErrorMessage` will say `"The request timed out."`. For other transport errors, `ErrorMessage` shows the root cause by using `GetBaseException().Message`, so you see the actual error (e.g., a TLS failure) rather than a generic wrapper message like `"An error occurred while sending the request"`. The full exception chain is always available in `ErrorException`.
+
 Normally, RestSharp doesn't throw an exception if the request fails.
 
 However, it is possible to configure RestSharp to throw in different situations when it normally doesn't throw

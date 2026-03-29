@@ -108,12 +108,19 @@ public partial class RestClientOptions {
 #endif
 
     /// <summary>
-    /// Set the maximum number of redirects to follow
+    /// Set the maximum number of redirects to follow.
+    /// This is a convenience property that delegates to <see cref="RedirectOptions"/>.MaxRedirects.
     /// </summary>
 #if NET
     [UnsupportedOSPlatform("browser")]
 #endif
-    public int? MaxRedirects { get; set; }
+    [Exclude]
+    public int? MaxRedirects {
+        get => RedirectOptions.MaxRedirects;
+        set {
+            if (value.HasValue) RedirectOptions.MaxRedirects = value.Value;
+        }
+    }
 
     /// <summary>
     /// X509CertificateCollection to be sent with request
@@ -141,8 +148,18 @@ public partial class RestClientOptions {
 
     /// <summary>
     /// Instruct the client to follow redirects. Default is true.
+    /// This is a convenience property that delegates to <see cref="RedirectOptions"/>.FollowRedirects.
     /// </summary>
-    public bool FollowRedirects { get; set; } = true;
+    [Exclude]
+    public bool FollowRedirects {
+        get => RedirectOptions.FollowRedirects;
+        set => RedirectOptions.FollowRedirects = value;
+    }
+
+    /// <summary>
+    /// Options for controlling redirect behavior.
+    /// </summary>
+    public RedirectOptions RedirectOptions { get; set; } = new();
 
     /// <summary>
     /// Gets or sets a value that indicates if the <see langword="Expect" /> header for an HTTP request contains Continue.
@@ -183,8 +200,16 @@ public partial class RestClientOptions {
     public CookieContainer? CookieContainer { get; set; }
 
     /// <summary>
-    /// Request duration. Used when the request timeout is not specified using <seealso cref="RestRequest.Timeout"/>,
+    /// Request timeout duration. Used when the request timeout is not specified using <seealso cref="RestRequest.Timeout"/>.
+    /// If not set, the default timeout is 100 seconds.
     /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><description>Set to <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> (or <c>TimeSpan.FromMilliseconds(-1)</c>) for no timeout</description></item>
+    /// <item><description>Set to <see cref="TimeSpan.Zero"/> to cancel the request immediately</description></item>
+    /// <item><description>Negative values (other than -1 millisecond) will throw <see cref="ArgumentOutOfRangeException"/></description></item>
+    /// </list>
+    /// </remarks>
     public TimeSpan? Timeout { get; set; }
 
     /// <summary>

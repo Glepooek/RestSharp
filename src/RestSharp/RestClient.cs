@@ -93,7 +93,6 @@ public partial class RestClient : IRestClient {
             ConfigureHttpMessageHandler(handler, options);
             var finalHandler = options.ConfigureMessageHandler?.Invoke(handler) ?? handler;
             var httpClient   = new HttpClient(finalHandler);
-            ConfigureHttpClient(httpClient, options);
 
             // We will use Options.Timeout in ExecuteAsInternalAsync method
             httpClient.Timeout = Timeout.InfiniteTimeSpan;
@@ -188,7 +187,6 @@ public partial class RestClient : IRestClient {
         DefaultParameters = new(Options);
 
         if (options != null) {
-            ConfigureHttpClient(httpClient, options);
             ConfigureDefaultParameters(options);
         }
     }
@@ -224,22 +222,16 @@ public partial class RestClient : IRestClient {
     )
         : this(new HttpClient(handler, disposeHandler), true, configureRestClient, configureSerialization) { }
 
-    internal static void ConfigureHttpClient(HttpClient httpClient, RestClientOptions options) {
-        if (options.Expect100Continue != null) httpClient.DefaultRequestHeaders.ExpectContinue = options.Expect100Continue;
-    }
-
     // ReSharper disable once CognitiveComplexity
     internal static void ConfigureHttpMessageHandler(HttpClientHandler handler, RestClientOptions options) {
 #if NET
         if (!OperatingSystem.IsBrowser()) {
 #endif
         handler.UseCookies             = false;
-        handler.Credentials            = options.Credentials;
-        handler.UseDefaultCredentials  = options.UseDefaultCredentials;
+        handler.UseDefaultCredentials = options.UseDefaultCredentials;
+        if (options.Credentials != null) handler.Credentials = options.Credentials;
         handler.AutomaticDecompression = options.AutomaticDecompression;
         handler.PreAuthenticate        = options.PreAuthenticate;
-        if (options.MaxRedirects.HasValue) handler.MaxAutomaticRedirections = options.MaxRedirects.Value;
-
         if (options.RemoteCertificateValidationCallback != null)
             handler.ServerCertificateCustomValidationCallback =
                 (request, cert, chain, errors) => options.RemoteCertificateValidationCallback(request, cert, chain, errors);
@@ -251,7 +243,7 @@ public partial class RestClient : IRestClient {
 #if NET
         }
 #endif
-        handler.AllowAutoRedirect = options.FollowRedirects;
+        handler.AllowAutoRedirect = false;
 
 #if NET
         // ReSharper disable once InvertIf

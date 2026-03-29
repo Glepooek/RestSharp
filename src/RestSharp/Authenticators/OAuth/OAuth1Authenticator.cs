@@ -41,7 +41,7 @@ public class OAuth1Authenticator : IAuthenticator {
     public virtual string?                 ClientUsername     { get; set; }
     public virtual string?                 ClientPassword     { get; set; }
 
-    public ValueTask Authenticate(IRestClient client, RestRequest request) {
+    public ValueTask Authenticate(IRestClient client, RestRequest request, CancellationToken cancellationToken = default) {
         var workflow = new OAuthWorkflow {
             ConsumerKey        = ConsumerKey,
             ConsumerSecret     = ConsumerSecret,
@@ -245,7 +245,7 @@ public class OAuth1Authenticator : IAuthenticator {
                 "Using query parameters in the base URL is not supported for OAuth calls. Consider using AddDefaultQueryParameter instead."
             );
 
-        var url              = client.BuildUri(request).ToString();
+        var url              = client.BuildUriString(request);
         var queryStringStart = url.IndexOf('?');
 
         if (queryStringStart != -1) url = url[..queryStringStart];

@@ -62,8 +62,8 @@ For example:
 
 ```csharp
 var client = new RestClient(options => {
-    options.BaseUrl = new Url("https://localhost:5000/api"),
-    options.DisableCharset = true
+    options.BaseUrl = new Uri("https://localhost:5000/api");
+    options.DisableCharset = true;
 });
 ```
 
@@ -161,18 +161,19 @@ RestSharp allows configuring `RestClient` using client options, as mentioned at 
 | `UseDefaultCredentials`                      | Whether to use default OS credentials for NTLM or Kerberos authentication. Not supported in browsers.                                                                                                                                                                                             |
 | `DisableCharset`                             | When set to `true`, the `Content-Type` header won't have the `charset` portion. Some older web servers don't understand the `charset` portion in the header and fail to process the request.                                                                                                      |
 | `AutomaticDecompression`                     | Allows customizing supported decompression methods. Default is `All` except for .NET Framework that only support `GZip`. Not supported in browsers.                                                                                                                                               |
-| `MaxRedirects`                               | The number of redirects to follow. Not supported in browsers.                                                                                                                                                                                                                                     |
+| `MaxRedirects`                               | The number of redirects to follow. Delegates to `RedirectOptions.MaxRedirects`. Default is 50.                                                                                                                                                                                                    |
 | `ClientCertificates`                         | A collection of X.509 client certificates to be used for authentication. Not supported in browsers.                                                                                                                                                                                               |
 | `Proxy`                                      | Can be used if the client needs to use an explicit, non-default proxy. Not supported in browsers, on iOS and tvOS.                                                                                                                                                                                |
 | `CachePolicy`                                | Shortcut for setting the default value for `Cache-Control` header.                                                                                                                                                                                                                                |
-| `FollowRedirects`                            | Instructs the client to follow redirects. Default is `true`.                                                                                                                                                                                                                                      |
-| `Expect100Continue`                          | Gets or sets a value that indicates if the `Expect` header for an HTTP request contains `Continue`.                                                                                                                                                                                               |
+| `FollowRedirects`                            | Instructs the client to follow redirects. Default is `true`. Delegates to `RedirectOptions.FollowRedirects`.                                                                                                                                                                                      |
+| `RedirectOptions`                            | Fine-grained control over redirect behavior. See [Redirect Options](#redirect-options) below.                                                                                                                                                                                                     |
+| `Expect100Continue`                          | Gets or sets a value that indicates if the `Expect` header for an HTTP request contains `Continue`. Set per-request, not on `HttpClient.DefaultRequestHeaders`.                                                                                                                                   |
 | `UserAgent`                                  | Allows overriding the default value for `User-Agent` header, which is `RestSharp/{version}`.                                                                                                                                                                                                      |
 | `PreAuthenticate`                            | Gets or sets a value that indicates whether the client sends an `Authorization` header with the request. Not supported in browsers.                                                                                                                                                               |
 | `RemoteCertificateValidationCallback`        | Custom function to validate the server certificate. Normally, it's used when the server uses a certificate that isn't trusted by default.                                                                                                                                                         |
 | `BaseHost`                                   | Value for the `Host` header sent with each request.                                                                                                                                                                                                                                               |
 | `CookieContainer`                            | Custom cookie container that will be shared among all calls made by the client. Normally not required as RestSharp handles cookies without using a client-level cookie container.                                                                                                                 |
-| `MaxTimeout`                                 | Client-level timeout in milliseconds. If the request timeout is also set, this value isn't used.                                                                                                                                                                                                  |
+| `Timeout`                                    | Client-level timeout as `TimeSpan`. Default is 100 seconds. See [Configuring Timeouts](#configuring-timeouts) for details on timeout behavior.                                                                                                                                                   |
 | `Encoding`                                   | Default request encoding. Override it only if you don't use UTF-8.                                                                                                                                                                                                                                |
 | `ThrowOnDeserializationError`                | Forces the client to throw if it fails to deserialize the response. Remember that not all deserialization issues forces the serializer to throw. Default is `false`, so the client will return a `RestResponse` with deserialization exception details. Only relevant for `Execute...` functions. |
 | `FailOnDeserializationError`                 | When set to `true`, if the client fails to deserialize the response, the response object will have status `Failed`, although the HTTP calls might have been successful. Default is `true`.                                                                                                        |
@@ -186,10 +187,8 @@ Some of the options are used by RestSharp code, but some are only used to config
 - `UseDefaultCredentials`
 - `AutomaticDecompression`
 - `PreAuthenticate`
-- `MaxRedirects`
 - `RemoteCertificateValidationCallback`
 - `ClientCertificates`
-- `FollowRedirects`
 - `Proxy`
 
 :::note
@@ -207,13 +206,14 @@ Client options apply to all requests made by the client. Sometimes, you want to 
 | `AlwaysMultipartFormData`    | When set to `true`, the request will be sent as a multipart form, even though it's not required. By default, RestSharp only sends requests with multiple attachments as multipart forms. Default is `false`.                                                                                                      |
 | `AlwaysSingleFileAsContent`  | When set to true, the request with file attachment will not be sent as a multipart form, but as plain content. Default is `false`. It cannot be set to `true` when `AlwaysMultipartFormData` is set to `true`, or when the request has `POST` parameters.                                                         |
 | `MultipartFormQuoteBoundary` | Default is `true`, which means that the form boundary string will be wrapped in quotes. If the server has an issue with that, setting this to `false` will remove quotes around the boundary.                                                                                                                     |
+| `MultipartFormQuoteParameters` | Whether to quote parameter names in multipart form `Content-Disposition` headers per RFC 7578. Default is `true` (changed from `false` in v114).                                                                                                                                                                |
 | `FormBoundary`               | Allows specifying a custom multipart form boundary instead of using the default random string.                                                                                                                                                                                                                    |
 | `RequestParameters`          | Collection of request parameters. Normally, you won't need to use it as parameters are added to the request using `Add...` functions.                                                                                                                                                                             |
 | `CookieContainer`            | Custom request-level cookie container. Default is `null`. You can still set request cookies using `AddCookie` and get response cookies from the response object without using cooking container.                                                                                                                  |
 | `Authenticator`              | Overrides the client-level authenticator.                                                                                                                                                                                                                                                                         |
 | `Files`                      | Collection of file parameters, read-only. Use `AddFile` for adding files to the request.                                                                                                                                                                                                                          |
 | `Method`                     | Request HTTP method, default is `GET`. Only needed when using `Execute` or `ExecuteAsync` as other functions like `ExecutePostAsync` will override the request method.                                                                                                                                            |
-| `TImeout`                    | Overrides the client-level timeout.                                                                                                                                                                                                                                                                               |
+| `Timeout`                    | Request-level timeout override. See [Configuring Timeouts](#configuring-timeouts) for details on timeout behavior.                                                                                                                                                                                |
 | `Resource`                   | Resource part of the remote endpoint URL. For example, when using the client-level base URL `https://localhost:5000/api` and `Resource` set to `weather`, the request will be sent to `https://localhost:5000/api/weather`. It can container resource placeholders to be used in combination with `AddUrlSegment` |
 | `RequestFormat`              | Identifies the request as JSON, XML, binary, or none. Rarely used because the client will set the request format based on the body type if functions like `AddJsonBody` or `AddXmlBody` are used.                                                                                                                 |
 | `RootElement`                | Used by the default deserializers to determine where to start deserializing from. Only supported for XML responses. Does not apply to requests.                                                                                                                                                                   |
@@ -228,3 +228,91 @@ Client options apply to all requests made by the client. Sometimes, you want to 
 | `Interceptors`               | Allows adding interceptors to the request. Both client-level and request-level interceptors will be called.                                                                                                                                                                                                       |
 
 The table below contains all configuration properties of `RestRequest`. To learn more about adding request parameters, check the [usage page](../usage/request.md) page about creating requests with parameters.
+
+## Configuring Timeouts
+
+RestSharp provides flexible timeout configuration at both the client and request levels. The timeout determines how long RestSharp will wait for a response before canceling the request.
+
+:::note Migration from MaxTimeout
+In older versions of RestSharp, the `MaxTimeout` property (measured in milliseconds) was used. This has been replaced by the `Timeout` property, which uses `TimeSpan` for more intuitive and type-safe timeout configuration.
+:::
+
+### Timeout Resolution
+
+When making a request, RestSharp uses the following priority order to determine the timeout:
+1. `RestRequest.Timeout` (if set)
+2. `RestClientOptions.Timeout` (if set)
+3. Default timeout of 100 seconds
+
+### Timeout Values
+
+The `Timeout` property accepts a `TimeSpan?` value and supports the following behaviors:
+
+| Value | Behavior |
+|-------|----------|
+| `null` (not set) | Uses the next level timeout (client timeout, then default 100 seconds) |
+| Positive `TimeSpan` | Request times out after the specified duration (e.g., `TimeSpan.FromSeconds(30)`) |
+| `Timeout.InfiniteTimeSpan` or `TimeSpan.FromMilliseconds(-1)` | No timeout - request will wait indefinitely for a response |
+| `TimeSpan.Zero` | Request is canceled immediately (effectively no time allowed for the request) |
+| Other negative values | Throws `ArgumentOutOfRangeException` when the request is executed |
+
+### Examples
+
+```csharp
+// Client-level timeout of 30 seconds
+var options = new RestClientOptions("https://api.example.com") {
+    Timeout = TimeSpan.FromSeconds(30)
+};
+var client = new RestClient(options);
+
+// Request-level timeout override
+var request = new RestRequest("resource") {
+    Timeout = TimeSpan.FromSeconds(60) // This request gets 60 seconds
+};
+
+// Infinite timeout (no timeout)
+var longRunningRequest = new RestRequest("long-operation") {
+    Timeout = Timeout.InfiniteTimeSpan
+};
+```
+
+## Redirect Options
+
+RestSharp handles redirects internally (rather than delegating to `HttpClient`) so it can capture `Set-Cookie` headers from intermediate redirect responses. The `RedirectOptions` class provides fine-grained control over redirect behavior.
+
+The convenience properties `RestClientOptions.FollowRedirects` and `RestClientOptions.MaxRedirects` delegate to `RedirectOptions` for backward compatibility.
+
+```csharp
+var options = new RestClientOptions("https://api.example.com") {
+    RedirectOptions = new RedirectOptions {
+        FollowRedirects = true,
+        MaxRedirects = 10,
+        ForwardAuthorization = true,
+        FollowRedirectsToInsecure = false
+    }
+};
+```
+
+| Option                            | Default | Description                                                                                                  |
+|-----------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| `FollowRedirects`                 | `true`  | Whether to follow redirects.                                                                                 |
+| `MaxRedirects`                    | `50`    | Maximum number of redirects to follow.                                                                       |
+| `FollowRedirectsToInsecure`       | `false` | Whether to follow redirects from HTTPS to HTTP.                                                              |
+| `ForwardHeaders`                  | `true`  | Whether to forward request headers on redirect.                                                              |
+| `ForwardAuthorization`            | `false` | Whether to forward the `Authorization` header on same-host redirects.                                        |
+| `ForwardAuthorizationToExternalHost` | `false` | Whether to forward `Authorization` on cross-host redirects. Only applies when `ForwardAuthorization` is true. |
+| `ForwardCookies`                  | `true`  | Whether to forward cookies on redirect. `Set-Cookie` headers are always captured regardless.                 |
+| `ForwardBody`                     | `true`  | Whether to forward the request body when the HTTP verb is preserved. Body is always dropped when verb changes to GET. |
+| `ForwardQuery`                    | `true`  | Whether to forward the original query string parameters on redirect.                                         |
+| `RedirectStatusCodes`             | 301, 302, 303, 307, 308 | HTTP status codes considered as redirects.                                                    |
+
+## Parameter formatting
+
+By default, all generic parameter methods (`AddParameter<T>`, `AddQueryParameter<T>`, `AddUrlSegment<T>`, `AddHeader<T>`, etc.) format values using `CultureInfo.InvariantCulture`. This ensures consistent behavior regardless of the server's or client's locale.
+
+If you need locale-specific formatting, pass a `CultureInfo` explicitly:
+
+```csharp
+request.AddParameter("price", 1234.56, culture: new CultureInfo("da-DK"));
+// Sends: price=1234,56
+```
