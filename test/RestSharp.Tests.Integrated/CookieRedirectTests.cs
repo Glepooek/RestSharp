@@ -1,10 +1,5 @@
 using System.Text.Json;
-using WireMock;
-using WireMock.RequestBuilders;
-using WireMock.ResponseBuilders;
-using WireMock.Server;
 using WireMock.Types;
-using WireMock.Util;
 
 namespace RestSharp.Tests.Integrated;
 

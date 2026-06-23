@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+For deep-dive details (build props hierarchy, source-generator internals, CI matrix, MinVer/packaging, troubleshooting), see [`agents.md`](agents.md) — it's the long-form developer reference.
+
 ## Build & Test Commands
 
 ```bash
@@ -38,6 +40,10 @@ RestSharp is a lightweight HTTP API client library for .NET that wraps `HttpClie
 - `test/RestSharp.Tests/` — Unit tests
 - `test/RestSharp.Tests.Integrated/` — Integration tests (WireMock-based)
 - `test/RestSharp.Tests.Serializers.*/` — Serializer-specific tests
+- `test/RestSharp.Tests.DependencyInjection/` — DI extension tests
+- `test/RestSharp.Tests.Shared/` — Shared test utilities
+- `test/RestSharp.InteractiveTests/` — Manual/interactive tests
+- `benchmarks/RestSharp.Benchmarks/` — BenchmarkDotNet performance tests
 
 ## Architecture
 
@@ -62,7 +68,7 @@ Abstract `Parameter` record base with concrete types: `HeaderParameter`, `QueryP
 
 ### Authentication (`Authenticators/`)
 
-`IAuthenticator` with single `Authenticate(IRestClient, RestRequest)` method. Built-in: `HttpBasicAuthenticator`, `JwtAuthenticator`, OAuth1/OAuth2 authenticators. Set via `RestClientOptions.Authenticator`.
+`IAuthenticator` with single async method `ValueTask Authenticate(IRestClient, RestRequest, CancellationToken)`. Built-in: `HttpBasicAuthenticator`, `JwtAuthenticator`, OAuth1/OAuth2 authenticators. Set via `RestClientOptions.Authenticator`.
 
 ### Source Generators (`gen/SourceGenerator/`)
 
@@ -70,6 +76,7 @@ Abstract `Parameter` record base with concrete types: `HeaderParameter`, `QueryP
 - `[GenerateClone]` — Creates static factory clone methods (used on `RestResponse<T>`)
 - `[Exclude]` — Excludes properties from immutable generation
 - Generator target must be `netstandard2.0`. Inspect output in `obj/<Config>/<TFM>/generated/SourceGenerator/`.
+- Quick listing: `find src/RestSharp/obj/Debug -name "*.g.cs" -o -name "ReadOnly*.cs"`
 
 ## Multi-Targeting
 
